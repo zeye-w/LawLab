@@ -1,14 +1,14 @@
 {
   "name": "lawlab",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "node --experimental-strip-types --test tests/contractRules.test.ts tests/study.test.ts tests/paper.test.ts tests/research.test.ts tests/ai-analysis.test.ts",
+    "test": "node --experimental-strip-types --test tests/contractRules.test.ts tests/study.test.ts tests/paper.test.ts tests/research.test.ts tests/ai-analysis.test.ts tests/contractImport.test.ts",
     "dev:worker": "wrangler dev",
     "deploy:worker": "npm run build && wrangler deploy"
   },
@@ -16,7 +16,8 @@
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "pdfjs-dist": "^5.4.394"
+    "pdfjs-dist": "^5.4.394",
+    "mammoth": "^1.13.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
