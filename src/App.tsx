@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
 import { reviewContract, SAMPLE_CONTRACT, type ContractFinding } from './lib/contractRules';
+import { importContractFile, type ContractImportResult } from './lib/contractImport';
 import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 import { PaperWorkspace } from './components/PaperWorkspace';
@@ -23,7 +24,7 @@ const MODULES: { id: ToolId; label: string; subtitle: string; description: strin
   { id: 'evidence', label: '证据链实验室', subtitle: 'EVIDENCE LAB', description: '关联事实与证据，识别相互支持和证明缺口。', icon: Network, color: 'green' },
   { id: 'quiz', label: '法学闯关', subtitle: 'LEGAL QUIZ', description: '完成原创情境题，获得即时反馈和知识回顾。', icon: GraduationCap, color: 'lavender' },
   { id: 'timeline', label: '案件时间线', subtitle: 'CASE TIMELINE', description: '编辑事实与程序节点，查看证据并导出时间线。', icon: CalendarDays, color: 'sand' },
-  { id: 'contracts', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '用可解释的规则筛查条款风险，学习改写合同。', icon: FileSearch, color: 'rose' }
+  { id: 'contracts', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '支持 TXT、DOC、DOCX 和文字型 PDF 本地导入，以可解释规则筛查条款风险。', icon: FileSearch, color: 'rose' }
 ];
 const DEEP_LINKS = new Set<ModuleId>(['home','learn','practice','litigation','nonlit','flashcards','knowledge','paper','court','reasoning','evidence','quiz','timeline','contracts']);
 function getHashPage(): ModuleId {
@@ -224,23 +225,31 @@ function ContractReview() {
   const [findings,setFindings] = useState<ContractFinding[] | null>(null);
   const [currentId,setCurrentId] = useState<string | null>(null);
   const [uploadError,setUploadError] = useState('');
+  const [importing,setImporting] = useState(false);
+  const [imported,setImported] = useState<ContractImportResult|null>(null);
   const current = findings?.find(f=>f.id===currentId)??findings?.[0];
   const high=findings?.filter(f=>f.severity==='high').length??0;
   function analyze(){ const result=reviewContract(text);setFindings(result);setCurrentId(result[0]?.id??null); }
-  function changeText(value:string){setText(value);setFindings(null);setCurrentId(null);setUploadError('');}
+  function changeText(value:string){setText(value);setFindings(null);setCurrentId(null);setUploadError('');setImported(null);}
   async function upload(event:ChangeEvent<HTMLInputElement>) {
-    const file=event.target.files?.[0];event.target.value='';if(!file)return;
-    if(file.size>1024*1024){setUploadError('仅支持不超过 1 MB 的纯文本文件。');return;}
-    if(!/\.txt$/i.test(file.name)){setUploadError('当前版本仅支持 .txt；请不要上传 PDF、Word 或含敏感信息的文件。');return;}
-    try { changeText(await file.text()); } catch {setUploadError('文件读取失败，请粘贴文本重试。');}
+    const file=event.target.files?.[0];event.target.value='';
+    if(!file||importing)return;
+    setUploadError('');setImporting(true);
+    try {
+      const result=await importContractFile(file);
+      changeText(result.text);setImported(result);
+    } catch(error) {
+      setUploadError(error instanceof Error?error.message:'文件读取失败，请更换文件。');
+    } finally {setImporting(false);}
   }
   return <>
-    <PageHeading eyebrow="MODULE 06 / CONTRACT REVIEW" title="合同审查工作台" description="使用本地预设规则标记可疑条款，理解风险来源与常见修改方向。" right={<Pill tone="amber">规则演示 · 非 AI</Pill>}/>
-    <div className="layout-split contracts-layout"><div className="panel"><div className="panel-head"><h2>合同文本</h2><span className="muted tiny">仅在浏览器内处理</span></div><textarea className="contract-text" aria-label="需要审查的合同文本" spellCheck={false} value={text} onChange={e=>changeText(e.target.value)} placeholder="在这里粘贴脱敏后的合同文本…"/>
-      <div className="contract-actions"><label className="btn outline file-upload"><Upload size={16}/> 导入 TXT<input type="file" accept=".txt,text/plain" onChange={upload}/></label><button className="btn subtle" onClick={()=>changeText(SAMPLE_CONTRACT)}>载入示例</button><button className="btn primary" disabled={!text.trim()} onClick={analyze}><Search size={16}/> 开始审查</button></div>
-      {uploadError&&<p role="alert" className="input-error">{uploadError}</p>}<p className="muted tiny">不会将合同提交给外部模型或后台。请勿输入未经授权的真实合同和敏感个人信息。</p></div>
+    <PageHeading eyebrow="MODULE 06 / CONTRACT REVIEW" title="合同审查工作台" description="导入 TXT、DOC、DOCX 或文字型 PDF，以本地预设规则筛查合同条款。平台只提取正文文字，不读取扫描图片。" right={<Pill tone="amber">规则演示 · 非 AI</Pill>}/>
+    <div className="layout-split contracts-layout"><div className="panel"><div className="panel-head"><h2>合同文本</h2><span className="muted tiny">仅在浏览器内处理</span></div><textarea className="contract-text" aria-label="需要审查的合同文本" spellCheck={false} value={text} disabled={importing} onChange={e=>changeText(e.target.value)} placeholder="在这里粘贴脱敏后的合同文本…"/>
+      <div className="contract-actions"><label className="btn outline file-upload"><Upload size={16}/> {importing?'正在解析文件…':'导入 TXT / DOC / DOCX / PDF'}<input type="file" accept=".txt,.doc,.docx,.pdf,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={importing} onChange={upload}/></label><button className="btn subtle" disabled={importing} onClick={()=>changeText(SAMPLE_CONTRACT)}>载入示例</button><button className="btn primary" disabled={!text.trim()||importing} onClick={analyze}><Search size={16}/> 开始审查</button></div>
+      {imported&&<div className="notice" role="status"><FileText size={17}/><div><strong>已从 {imported.name} 提取 {imported.text.length.toLocaleString('zh-CN')} 字符</strong>{imported.pages?(' · PDF 共 '+imported.pages+' 页'):''}<p>文本已填入上方编辑区，请核对完整性后再点击「开始审查」。</p>{imported.warnings.map((warning,i)=><p key={i}>{warning}</p>)}</div></div>}
+      {uploadError&&<p role="alert" className="input-error">{uploadError}</p>}<p className="muted tiny">支持不超过 8 MB 的文件，文字提取和规则筛查均在浏览器本地完成，合同不会上传到服务器或 AI 模型。扫描 PDF 需先 OCR；加密文件和部分旧式 DOC 无法直接解析。请仅使用虚构、脱敏或已获授权的合同。</p></div>
       <div className="panel"><div className="panel-head"><div><div className="eyebrow">REVIEW FINDINGS</div><h2>风险提示</h2></div>{findings&&<Pill tone={high?'red':'amber'}>{findings.length} 项待核查</Pill>}</div>
-        {findings===null?<div className="empty-review"><FileSearch size={40} strokeWidth={1.3}/><h3>从一份合同开始</h3><p>粘贴内容或使用示例合同，点击「开始审查」查看规则匹配结果。</p></div>:findings.length===0?<div className="empty-review"><CheckCircle2 size={36}/><h3>未命中当前预设规则</h3><p>这并不代表合同无风险。规则覆盖范围有限，需要逐条人工审查。</p></div>:<><div className="findings-list">{findings.map(f=><button key={f.id} className={`finding ${current?.id===f.id?'finding-active':''}`} onClick={()=>setCurrentId(f.id)}><span className={`risk-line risk-${f.severity}`}/><span className="grow"><strong>{f.title}</strong><small>{f.quote?`“${f.quote.slice(0,44)}${f.quote.length>44?'…':''}”`:'文本未检测到明确约定'}</small></span><Pill tone={f.severity==='high'?'red':'amber'}>{f.severity==='high'?'高关注':'需关注'}</Pill></button>)}</div>
+        {findings===null?<div className="empty-review"><FileSearch size={40} strokeWidth={1.3}/><h3>从一份合同开始</h3><p>粘贴合同、导入 TXT / DOC / DOCX / PDF，或使用示例合同，点击「开始审查」查看规则匹配结果。</p></div>:findings.length===0?<div className="empty-review"><CheckCircle2 size={36}/><h3>未命中当前预设规则</h3><p>这并不代表合同无风险。规则覆盖范围有限，需要逐条人工审查。</p></div>:<><div className="findings-list">{findings.map(f=><button key={f.id} className={`finding ${current?.id===f.id?'finding-active':''}`} onClick={()=>setCurrentId(f.id)}><span className={`risk-line risk-${f.severity}`}/><span className="grow"><strong>{f.title}</strong><small>{f.quote?`“${f.quote.slice(0,44)}${f.quote.length>44?'…':''}”`:'文本未检测到明确约定'}</small></span><Pill tone={f.severity==='high'?'red':'amber'}>{f.severity==='high'?'高关注':'需关注'}</Pill></button>)}</div>
         {current&&<div className="finding-detail"><div className="eyebrow">SELECTED FINDING</div><h3>{current.title}</h3><p><strong>为什么需要关注</strong><br/>{current.reason}</p><p><strong>审查与修改方向</strong><br/>{current.suggestion}</p>{current.quote&&<div className="quoted">匹配文本：{current.quote}</div>}</div>}</>}
       </div></div><Notice icon={ShieldCheck}>当前版本是透明的正则规则筛查，不是实时 AI，也不能替代律师审核。未检出风险不等于合法、有效或公平。</Notice>
   </>;
