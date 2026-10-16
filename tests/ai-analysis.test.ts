@@ -66,7 +66,7 @@ test('prompt treats PDF content as untrusted data and includes page labels',()=>
   assert.ok(prompt.includes(data.question));
 });
 
-import { MAX_REQUEST_BYTES,MAX_TOTAL_CHARS,MAX_PAGE_CHARS,RequestError,readModelPayload } from '../worker/grounding.ts';
+import { MAX_REQUEST_BYTES,MAX_TOTAL_CHARS,MAX_PAGE_CHARS,RequestError,readModelPayload,classifyModelOutputFailure } from '../worker/grounding.ts';
 import worker from '../worker/index.ts';
 
 const goodClaims={claims:[{page:4,claim:'提示义务的认定应兼顾合同磋商方式与相对人理解能力。',
@@ -102,6 +102,46 @@ test('model output is read from chat-completion, reasoning and fenced shapes; ga
   assert.equal(readModelPayload({response:'无法完成'}),null);
   assert.equal(readModelPayload({choices:[]}),null);
   assert.deepEqual(readModelPayload({claims:[]}),{claims:[]});
+});
+test('Qwen final JSON can be recovered from content parts, prose and nested braces',()=>{
+  const text=JSON.stringify(goodClaims);
+  const variants=[
+    {choices:[{message:{content:[{type:'text',text}]},finish_reason:'stop'}]},
+    {response:{choices:[{message:{content:text}}]}},
+    {result:{response:text}},
+    {response:'说明中的花括号 {not json}; 最终输出如下：'+text+'。'}, 
+    {response:'<think>这里有 {错误的候选JSON} 但不应该读取</think>\n'+text},
+  ];
+  for(const v of variants)assert.equal(readModelPayload(v)?.claims.length,1,JSON.stringify(v).slice(0,65));
+});
+test('unfinished Qwen thinking is rejected rather than turned into an ungrounded claim',()=>{
+  assert.equal(readModelPayload({response:'<think>正在推理：{"claims":[{"page":1}]}'}),null);
+  assert.equal(classifyModelOutputFailure({response:'<think>正在思考，未结束'}),'truncated');
+  assert.equal(classifyModelOutputFailure({choices:[{finish_reason:'length',message:{content:'{ "claims": ['}}]}),'truncated');
+  assert.equal(classifyModelOutputFailure({choices:[{finish_reason:'stop',message:{content:''}}]}),'empty');
+  assert.equal(classifyModelOutputFailure({response:'抱歉，暂无观点'}),'unparseable');
+});
+test('Worker requests Qwen without thinking or unsupported JSON-mode settings and validates its evidence',async()=>{
+  let options:Record<string,unknown>|null=null;
+  const env=makeEnv({ai:async()=>{throw new Error('unused');}});
+  env.AI.run=async(_model:string,opts:Record<string,unknown>)=>{options=opts;return {response:goodClaims};};
+  const res=await post(data,env);
+  assert.equal(res.status,200);
+  assert.ok(options);
+  const used=options as Record<string,unknown>;
+  assert.equal(used.response_format,undefined);
+  assert.ok(Number(used.max_tokens)>=2000);
+  const messages=used.messages as Array<{role:string;content:string}>;
+  assert.match(messages[0].content,/\/no_think/);
+  assert.match(messages[1].content,/\n\/no_think\n/);
+});
+test('unparseable model output reports only fixed code and no model content',async()=>{
+  const upstream='抱歉，没有输出 JSON，内部模型消息';
+  const res=await post(data,makeEnv({ai:async()=>({response:upstream})}));
+  assert.equal(res.status,502);
+  const body=await res.text();
+  assert.match(body,/"code":"unparseable"/);
+  assert.ok(!body.includes(upstream));
 });
 test('request problems are RequestError (400); upstream failures are generic 502 without their text',async()=>{
   assert.throws(()=>validateAnalysisRequest({}),RequestError);
