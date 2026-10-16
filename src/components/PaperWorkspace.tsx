@@ -1,6 +1,7 @@
 import { useEffect,useState,type ChangeEvent } from 'react';
 import './paper.css';
 import { LiteratureSearch,ArgumentWorkbench } from './ResearchWorkbench';
+import { AIAnalysis } from './AIAnalysis';
 import { ArrowDown,ArrowDownToLine,ArrowLeft,ArrowUp,BookOpen,CheckCircle2,FilePlus2,FileText,Plus,RotateCcw,ShieldCheck,Trash2,Upload } from 'lucide-react';
 import {
   PAPER_STORAGE_KEY, PAPER_RECOVERY_KEY, PAPER_MODES, REFERENCE_TYPES, MAX_SECTIONS, MAX_REFERENCES, MAX_SECTION_TEXT,
@@ -35,8 +36,8 @@ function newId(prefix:string):string {
   if(typeof crypto!=='undefined' && 'randomUUID' in crypto) return prefix+crypto.randomUUID();
   return prefix+Date.now()+'-'+Math.random().toString(36).slice(2);
 }
-type Tab='design'|'research'|'logic'|'write'|'sources';
-const NAV:[Tab,string][]=[['design','研究设计'],['research','文献检索'],['logic','观点与逻辑'],['write','章节写作'],['sources','参考资料']];
+type Tab='design'|'research'|'ai'|'logic'|'write'|'sources';
+const NAV:[Tab,string][]=[['design','研究设计'],['research','文献检索'],['ai','AI 文献分析'],['logic','观点与逻辑'],['write','章节写作'],['sources','参考资料']];
 export function PaperWorkspace() {
   const [draft]=useState(readDraft);
   const [paper,setPaper]=useState<PaperProject>(draft.paper);
@@ -169,6 +170,7 @@ export function PaperWorkspace() {
       </aside>
     </div>}
     {tab==='research'&&<LiteratureSearch paper={paper} setPaper={setPaper} onLogic={()=>setTab('logic')}/>}
+    {tab==='ai'&&<AIAnalysis paper={paper} setPaper={setPaper} goToLogic={()=>setTab('logic')}/>}
     {tab==='logic'&&<ArgumentWorkbench paper={paper} setPaper={setPaper} onInsertGuide={insertGuide}/>}
     {tab==='write'&&<div className="paper-columns paper-writing">
       <aside className="panel paper-outline">
@@ -203,7 +205,7 @@ export function PaperWorkspace() {
         </section>)}</div>}
     </div>}
     <div className="paper-bottom">
-      <div className="paper-bottom-note"><ShieldCheck size={17}/><p>本版本可直接向 Crossref 发送你输入的文献检索关键词以读取公开 DOI 元数据；论文正文、研究笔记和参考文献库只保存在当前浏览器，不上传 LawLab 服务器。观点整理和写作指引基于你手动录入的材料，不是自动阅读全文或 AI 论文生成。请定期下载 JSON 备份，并遵守学校学术诚信与引证规范。</p></div>
+      <div className="paper-bottom-note"><ShieldCheck size={17}/><p>文献检索会把关键词发送到 Crossref；使用 AI 文献分析时，上传的 PDF 在浏览器内解析，并将部分页面文字发送至 Cloudflare Workers AI，原始 PDF 文件不会上传服务器。论文正文、研究笔记和参考文献库保存在当前浏览器。观点整理和写作指引基于你手动录入的材料，不是自动阅读全文或 AI 论文生成。请定期下载 JSON 备份，并遵守学校学术诚信与引证规范。</p></div>
       <button type="button" className="btn subtle" onClick={reset}><RotateCcw size={15}/> 新建空白论文</button>
     </div>
   </div>;
