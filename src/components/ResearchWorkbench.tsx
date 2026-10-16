@@ -1,4 +1,4 @@
-import { useRef,useState,type Dispatch,type SetStateAction } from 'react';
+import { useRef,useState,type Dispatch,type FormEvent,type SetStateAction } from 'react';
 import { ArrowRight,BookOpen,CheckCircle2,ExternalLink,FilePlus2,GitBranch,LibraryBig,LoaderCircle,Search,ShieldAlert,Sparkles } from 'lucide-react';
 import {
   crossrefSearchUrl,crossrefBrowserUrl,parseCrossrefResponse,citationForHit,
@@ -21,7 +21,7 @@ export function LiteratureSearch({paper,setPaper,onLogic}:{onLogic:()=>void}&Pro
   const [error,setError]=useState('');
   const [searched,setSearched]=useState(false);
   const abort=useRef<AbortController|null>(null);
-  async function search(event:React.FormEvent<HTMLFormElement>){
+  async function search(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
     const trimmed=query.trim();
     if(!trimmed){setError('请填写检索关键词。');return;}
