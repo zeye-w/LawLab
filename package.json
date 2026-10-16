@@ -1,14 +1,14 @@
 {
   "name": "lawlab",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "node --experimental-strip-types --test tests/contractRules.test.ts tests/study.test.ts tests/paper.test.ts"
+    "test": "node --experimental-strip-types --test tests/contractRules.test.ts tests/study.test.ts tests/paper.test.ts tests/research.test.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
