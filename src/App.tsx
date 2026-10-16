@@ -87,7 +87,7 @@ function ModuleHome({ navigate }: { navigate: (id: ModuleId) => void }) {
       <EntryCard icon={GraduationCap} overline="01 / LAWLAB LEARN" title="学生版" description="记忆卡片、知识图谱、论文写作、案例练习与模拟法庭，贯通学习和研究。" callout="进入学习空间" accent="study" onClick={()=>navigate('learn')}/>
       <EntryCard icon={BriefcaseBusiness} overline="02 / LAWLAB PRACTICE" title="专业版" description="按诉讼与非诉业务整理证据、时间线和合同审查流程。当前仅供示例训练与工作流演示。" callout="进入实务空间" accent="work" onClick={()=>navigate('practice')}/>
     </div>
-    <Notice icon={ShieldCheck}>当前仍是离线演示版：学生与专业模式不需要账号，案例均为虚构；专业版不应上传或处理真实客户敏感材料，也不提供正式法律意见。</Notice>
+    <Notice icon={ShieldCheck}>当前为浏览器本地演示版：学习和案件数据只保存在本机，仅论文「文献检索」会把检索词发送到 Crossref；学生与专业模式不需要账号，案例均为虚构；专业版不应上传或处理真实客户敏感材料，也不提供正式法律意见。</Notice>
   </>;
 }
 const PORTAL_TOOLS: Record<'learn'|'litigation'|'nonlit',ToolId[]> = {
@@ -276,7 +276,7 @@ export default function App(){
     </nav>
     <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2.1 · LOCAL DEMONSTRATION</span></div></aside>
     {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
-    <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地演示模式</span></div></header>
+    <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地保存 · 文献检索联网</span></div></header>
       <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractReview/>}</main>
       <footer className="footer"><span>LAWLAB · LEARN THE LAW. PRACTICE THE LAW.</span><span>教学与流程演示 · 不构成法律意见</span></footer>
     </div>

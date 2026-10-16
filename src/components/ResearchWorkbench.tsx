@@ -108,7 +108,7 @@ export function ArgumentWorkbench({paper,setPaper,onInsertGuide}:{onInsertGuide:
   return <div className="paper-research">
     <div className="panel paper-panel">
       <div className="panel-head"><div><div className="eyebrow">02 / READING NOTES</div><h2>阅读笔记与观点标注</h2></div><GitBranch size={20}/></div>
-      <p className="paper-help">在阅读每篇原文后，把观点用自己的话记录，并注明原文页码、所依据的证据及适用局限。下方整理的所有立场都来自你的手工标注，**并非 AI 自动提取论文内容**。</p>
+      <p className="paper-help">在阅读每篇原文后，把观点用自己的话记录，并注明原文页码、所依据的证据及适用局限。下方整理的所有立场都来自你的手工标注，<strong>并非 AI 自动提取论文内容</strong>。</p>
       {paper.references.length===0?<div className="paper-empty"><LibraryBig size={30}/><strong>尚无可分析资料</strong><p>请先在「文献检索」加入 DOI 文献，或从「参考资料」手动添加中文法律文献。</p></div>:<>
         <label className="paper-logic-filter"><input type="checkbox" checked={onlyNoted} onChange={e=>setOnlyNoted(e.target.checked)}/>仅显示已填写观点的来源</label>
         <div className="paper-logic-sources">{paper.references.filter(ref=>!onlyNoted||!!ref.research?.claim.trim()).map((ref,index)=><section className="paper-logic-source" key={ref.id}>
@@ -134,10 +134,10 @@ export function ArgumentWorkbench({paper,setPaper,onInsertGuide}:{onInsertGuide:
     </div>
     <div className="panel paper-panel">
       <div className="panel-head"><div><div className="eyebrow">05 / GUIDED WRITING</div><h2>从研究分析进入章节写作</h2></div><Sparkles size={20}/></div>
-      <p className="paper-help">依据当前研究问题、你手动整理的观点和论证缺口，为指定章节生成**结构化写作指引**。它不会替你写出未经验证的法律结论，插入章节之前可先检查。</p>
+      <p className="paper-help">依据当前研究问题、你手动整理的观点和论证缺口，为指定章节生成<strong>结构化写作指引</strong>。它不会替你写出未经验证的法律结论；附加后放在该章节的「写作笔记」中，不进入正文。</p>
       <div className="paper-guide-toolbar"><label htmlFor="research-guide-section">目标章节</label><select id="research-guide-section" value={selected?.id??''} onChange={e=>{setChosen(e.target.value);setShowGuide(false);}}>{paper.sections.map(s=><option key={s.id} value={s.id}>{s.heading}</option>)}</select>
         <button type="button" className="btn outline" onClick={()=>setShowGuide(v=>!v)} disabled={!selected}>{showGuide?'收起指引':'生成写作指引'}</button></div>
-      {showGuide&&<div className="paper-guide-preview"><pre>{guide}</pre><button type="button" className="btn primary" disabled={!selected} onClick={()=>onInsertGuide(selected,guide)}>将写作指引附加到此章节 <ArrowRight size={15}/></button></div>}
+      {showGuide&&<div className="paper-guide-preview"><pre>{guide}</pre><button type="button" className="btn primary" disabled={!selected} onClick={()=>onInsertGuide(selected,guide)}>附加到此章节的写作笔记 <ArrowRight size={15}/></button></div>}
     </div>
   </div>;
 }

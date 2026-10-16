@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { crossrefSearchUrl,parseCrossrefResponse,citationForHit,summarizeResearch,makeWritingGuide } from '../src/lib/research.ts';
-import { createPaper,exportPaperBackup,parsePaperBackup,paperToMarkdown } from '../src/lib/paper.ts';
+import { createPaper,exportPaperBackup,parsePaperBackup,paperToMarkdown,countPaperCharacters,checkPaper,sectionsCustomized } from '../src/lib/paper.ts';
 
 test('Crossref query is safely URL encoded and empty queries are rejected',()=>{
   const u=new URL(crossrefSearchUrl('  contract & obligations   '));
@@ -56,4 +56,15 @@ test('version-1 paper backups preserve optional research notes and still accept 
   const legacy=createPaper();
   legacy.references=[{id:'legacy',type:'期刊论文',citation:'Legacy',locator:'',note:'',verified:false}];
   assert.deepEqual(parsePaperBackup(exportPaperBackup(legacy)),legacy);
+});
+
+test('writing notes are kept apart from paper text, survive backups and stay out of exports',()=>{
+  const p=createPaper();
+  p.sections[0].notes='【写作指引】仅供作者参考';
+  assert.equal(countPaperCharacters(p),0);
+  assert.equal(checkPaper(p).find(c=>c.label==='完成全部章节初稿')?.ok,false);
+  assert.ok(!paperToMarkdown(p).includes('写作指引'));
+  assert.deepEqual(parsePaperBackup(exportPaperBackup(p)),p);
+  assert.equal(sectionsCustomized(p),true);
+  assert.throws(()=>parsePaperBackup(JSON.stringify({format:'lawlab-paper-backup',version:1,paper:{...p,sections:[{...p.sections[0],notes:5}]}})));
 });

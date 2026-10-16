@@ -3,7 +3,7 @@ import './paper.css';
 import { LiteratureSearch,ArgumentWorkbench } from './ResearchWorkbench';
 import { ArrowDown,ArrowDownToLine,ArrowLeft,ArrowUp,BookOpen,CheckCircle2,FilePlus2,FileText,Plus,RotateCcw,ShieldCheck,Trash2,Upload } from 'lucide-react';
 import {
-  PAPER_STORAGE_KEY, PAPER_RECOVERY_KEY, PAPER_MODES, REFERENCE_TYPES, MAX_SECTIONS, MAX_REFERENCES,
+  PAPER_STORAGE_KEY, PAPER_RECOVERY_KEY, PAPER_MODES, REFERENCE_TYPES, MAX_SECTIONS, MAX_REFERENCES, MAX_SECTION_TEXT,
   createPaper,checkPaper,sectionsCustomized,applyReferencePatch,
   countPaperCharacters,paperToMarkdown,exportPaperBackup,parsePaperBackup,
   type PaperMode,type PaperProject,type PaperReference,type PaperSection
@@ -57,7 +57,7 @@ export function PaperWorkspace() {
   }
   function changeMode(next:PaperMode) {
     if(next===paper.mode) return;
-    if(sectionsCustomized(paper)&&!window.confirm('更换论文结构会用新模板替换全部章节，包括已修改的章节标题、顺序和正文。请先导出备份。确定继续吗？')) return;
+    if(sectionsCustomized(paper)&&!window.confirm('更换论文结构会用新模板替换全部章节，包括已修改的章节标题、顺序、正文和写作笔记。请先导出备份。确定继续吗？')) return;
     setPaper(old=>({...old,mode:next,sections:createPaper(next).sections}));
     setSectionId('');setMessage('已切换论文结构模板。');
   }
@@ -121,10 +121,10 @@ export function PaperWorkspace() {
     }catch(error){setMessage(error instanceof Error?error.message:'备份无法读取。');}
   }
   function insertGuide(section:PaperSection,guide:string){
-    if(section.body.length+guide.length+2>150000){setMessage('章节长度超过限制，无法附加写作指引。');return;}
-    if(section.body.trim()&&!window.confirm('将研究指引附加到现有章节末尾。建议先备份，确定继续吗？'))return;
-    setPaper(old=>({...old,sections:old.sections.map(s=>s.id===section.id?{...s,body:s.body.trimEnd()+(s.body.trim()?'\n\n':'')+guide}:s)}));
-    setSectionId(section.id);setTab('write');setMessage('已将结构化写作指引加入章节；请自行撰写并核实各条参考文献。');
+    const notes=section.notes??'';
+    if(notes.length+guide.length+2>MAX_SECTION_TEXT){setMessage('该章节写作笔记超过长度限制，无法附加写作指引。');return;}
+    setPaper(old=>({...old,sections:old.sections.map(s=>s.id===section.id?{...s,notes:(s.notes??'').trimEnd()+((s.notes??'').trim()?'\n\n':'')+guide}:s)}));
+    setSectionId(section.id);setTab('write');setMessage('写作指引已放入该章节的「写作笔记」，不计入正文、不随 Markdown 导出；请自行撰写正文并核实各条参考文献。');
   }
   function reset(){
     if(!window.confirm('重置会清空论文、章节和参考资料。本操作不可撤销，建议先导出 JSON 备份。确定继续吗？'))return;
@@ -183,6 +183,7 @@ export function PaperWorkspace() {
         <div className="panel-head"><div><span className="eyebrow">SECTION EDITOR</span><h2>撰写章节</h2></div><FileText size={20}/></div>
         <div className="paper-field"><label htmlFor="paper-heading">章节标题</label><input id="paper-heading" maxLength={300} value={active.heading} onChange={e=>updateSection(active.id,{heading:e.target.value})}/></div>
         <div className="paper-field"><label htmlFor="paper-body">正文</label><textarea id="paper-body" className="paper-body" maxLength={150000} spellCheck value={active.body} onChange={e=>updateSection(active.id,{body:e.target.value})} placeholder="在这里展开你自己的法律论证。引入法律条文、学术观点或案例时，请注明可核验的出处。"/></div>
+        <div className="paper-field paper-notes"><label htmlFor="paper-notes">写作笔记（不计入正文字数，不导出到 Markdown）</label><textarea id="paper-notes" maxLength={MAX_SECTION_TEXT} rows={6} value={active.notes??''} onChange={e=>updateSection(active.id,{notes:e.target.value})} placeholder="提纲、待查资料或从「观点与逻辑」附加的写作指引会放在这里。"/></div>
         <div className="paper-editor-footer"><span>章节正文 {active.body.replace(/\s/g,'').length.toLocaleString('zh-CN')} 字符</span><span>自动保存到此浏览器（建议定期备份）</span></div>
       </>}</section>
     </div>}

@@ -1,7 +1,8 @@
 import type { ResearchNote } from './research';
 export type PaperMode = '规范解释研究' | '案例评析' | '比较法研究';
 export type ReferenceType = '期刊论文' | '专著' | '法律规范' | '裁判文书' | '其他';
-export type PaperSection = { id: string; heading: string; body: string };
+// notes holds the author's working notes (e.g. inserted writing guides); it is never counted or exported as paper text.
+export type PaperSection = { id: string; heading: string; body: string; notes?: string };
 export type PaperReference = { id: string; type: ReferenceType; citation: string; locator: string; note: string; verified: boolean; research?: ResearchNote };
 export type PaperProject = {
   title: string;
@@ -16,6 +17,7 @@ export const PAPER_STORAGE_KEY = 'lawlab:student-paper:v1';
 export const PAPER_RECOVERY_KEY = 'lawlab:student-paper:recovery';
 export const MAX_SECTIONS = 60;
 export const MAX_REFERENCES = 200;
+export const MAX_SECTION_TEXT = 150000;
 export const PAPER_MODES: PaperMode[] = ['规范解释研究','案例评析','比较法研究'];
 export const REFERENCE_TYPES: ReferenceType[] = ['期刊论文','专著','法律规范','裁判文书','其他'];
 const TEMPLATES: Record<PaperMode,string[]> = {
@@ -34,7 +36,7 @@ export function createPaper(mode: PaperMode = '规范解释研究'): PaperProjec
 export function sectionsCustomized(paper: PaperProject): boolean {
   const template = TEMPLATES[paper.mode];
   return paper.sections.length !== template.length ||
-    paper.sections.some((section,index) => !!section.body.trim() || section.heading !== template[index]);
+    paper.sections.some((section,index) => !!section.body.trim() || !!section.notes?.trim() || section.heading !== template[index]);
 }
 // Changing what a source is or where it is found invalidates the author's earlier verification.
 export function applyReferencePatch(ref: PaperReference, patch: Partial<PaperReference>): PaperReference {
@@ -111,10 +113,11 @@ export function parsePaperBackup(text:string):PaperProject {
   const sections:PaperSection[]=[];
   for(const item of p.sections) {
     if(!record(item)||!stringWithin(item.id,100)||!item.id||
-      !stringWithin(item.heading,300)||!stringWithin(item.body,150000)) {
+      !stringWithin(item.heading,300)||!stringWithin(item.body,MAX_SECTION_TEXT)||
+      (item.notes!==undefined&&!stringWithin(item.notes,MAX_SECTION_TEXT))) {
       throw new Error('章节数据不符合要求。');
     }
-    sections.push({id:item.id,heading:item.heading,body:item.body});
+    sections.push({id:item.id,heading:item.heading,body:item.body,...(item.notes!==undefined?{notes:item.notes as string}:{})});
   }
   const references:PaperReference[]=[];
   for(const item of p.references) {
