@@ -106,5 +106,5 @@ test('PDF source mapping always locates the exact canonical text on the real phy
   }
   const blank=flattenPdfTextPages(['', '', '甲方可随时解除合同。']);
   assert.equal(blank.text,'甲方可随时解除合同。');
-  assert.deepEqual(blank.pageSpans,[{page:3,start:0,end:11}]);
+  assert.deepEqual(blank.pageSpans,[{page:3,start:0,end:blank.text.length}]);
 });
