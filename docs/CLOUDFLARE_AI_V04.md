@@ -26,6 +26,13 @@
     { "name": "AI_IP_LIMITER", "namespace_id": "41001", "simple": { "limit": 4, "period": 60 } },
     { "name": "AI_GLOBAL_LIMITER", "namespace_id": "41002", "simple": { "limit": 20, "period": 60 } }
   ],
+  "previews": {
+    "ai": { "binding": "AI" },
+    "ratelimits": [
+      { "name": "AI_IP_LIMITER", "namespace_id": "51001", "simple": { "limit": 4, "period": 60 } },
+      { "name": "AI_GLOBAL_LIMITER", "namespace_id": "51002", "simple": { "limit": 20, "period": 60 } }
+    ]
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -34,6 +41,30 @@
   }
 }
 ```
+
+### Cloudflare Worker Previews（PR 预览环境）
+
+当 Cloudflare 的 Git 连接执行 `npx wrangler preview` 时，必须在 `wrangler.jsonc` 内定义独立的 `previews` 块；**Preview 不继承顶层生产绑定**。本仓库已配置：
+
+```json
+"previews": {
+  "ai": { "binding": "AI" },
+  "ratelimits": [
+    { "name": "AI_IP_LIMITER", "namespace_id": "51001", "simple": { "limit": 4, "period": 60 } },
+    { "name": "AI_GLOBAL_LIMITER", "namespace_id": "51002", "simple": { "limit": 20, "period": 60 } }
+  ]
+}
+```
+
+正式生产限流 namespace ID 为 `41001`、`41002`，预览环境使用 `51001`、`51002`，**不与生产共享限流计数器**。请先确认预览 namespace ID 没被当前 Cloudflare 账号的其他 Worker 使用；使用同一 `namespace_id` 的不同 Preview 也会共享同一计数器，若需每个 Preview 相互隔离，应为它们分配不同 ID。
+
+Cloudflare 预览站点通常是公开链接。**不要把生产访问码放进 Preview**，也不要将 `LAWLAB_AI_ACCESS_TOKEN` 写入仓库或前端。只有管理员明确为 Preview 配置独立的 Secret 后，`/api/ai/status` 才应返回 `configured:true`。不配置时站点的论文编辑与 PDF 本地解析仍可测试，但云端 AI 接口应保持关闭（503）。
+
+预览环境若启用 AI，推理仍会消耗当前 Cloudflare 账号的 Neurons 免费额度或产生相应费用。建议仅对可信测试人员开放，并用独立的预览访问码测试。
+
+可从 Cloudflare 控制台的 Preview 配置中设置独立 Secret，或按官方文档使用 Preview 命令行管理。预览部署仍然执行 `npx wrangler preview`，**不要改成 `npx wrangler deploy` 来绕过错误**，否则会有意外部署到生产的风险。
+
+参考文档：https://developers.cloudflare.com/workers/previews/configuration/ 及 https://developers.cloudflare.com/workers/previews/resources/
 
 Worker 名称必须与你已有 Cloudflare Worker 保持一致。Cloudflare Workers AI 依赖 `env.AI`，Wrangler 会根据配置创建 AI Binding 和两个限流 Binding（Workers Rate Limiting）。缺少任一限流 Binding 时 AI 接口保持关闭（503），避免在没有频率限制的情况下消耗额度。
 
