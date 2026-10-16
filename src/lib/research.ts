@@ -1,4 +1,4 @@
-import type { PaperProject,PaperReference,PaperSection } from './paper';
+import type { PaperProject,PaperSection } from './paper';
 
 export type ResearchStance = 'support' | 'challenge' | 'background' | 'unclassified';
 export type ResearchNote = {
