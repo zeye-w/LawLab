@@ -1,5 +1,5 @@
 import type { ContractFinding } from '../contractRules.ts';
-import { reviewContract, SAMPLE_CONTRACT } from '../contractRules';
+import { reviewContract, SAMPLE_CONTRACT } from '../contractRules.ts';
 import type { ContractImportResult, ContractFormat, ContractPageSpan, ContractIntegrity } from '../contractImport.ts';
 
 /** The canonical text is the only source for finding offsets; file bytes remain in memory only while parsing. */
