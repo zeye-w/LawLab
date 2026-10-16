@@ -11,3 +11,66 @@
 @media(max-width:900px){.sidebar{transform:translateX(-100%);transition:transform .2s;width:260px;box-shadow:10px 0 30px #263c3210}.sidebar-open{transform:translateX(0)}.main-area{margin-left:0}.menu-toggle,.close-menu{display:grid!important}.sidebar-header{display:flex;align-items:center;justify-content:space-between;gap:10px}.backdrop{position:fixed;inset:0;border:0;background:#1c38275e;z-index:20}.topbar{height:63px;padding:0 24px;justify-content:start;gap:15px}.topbar-right{margin-left:auto}.content{padding:30px 24px 65px}.footer{padding:18px 24px}}
 @media(max-width:640px){.content{padding:22px 16px 55px}.topbar{padding:0 16px}.topbar-right{font-size:0}.topbar-right .top-dot{width:8px;height:8px}.breadcrumbs>span{display:none}.breadcrumbs svg{display:none}.hero{min-height:310px;padding:30px 23px;margin-bottom:32px}.hero h1{font-size:34px}.hero-art{right:-95px;bottom:-40px;opacity:.12}.hero p{font-size:12px}.section-line{align-items:start}.section-line p{display:none}.module-grid{grid-template-columns:1fr;gap:11px}.module-card{min-height:185px;padding:20px}.module-card-top{margin-bottom:15px}.page-heading{flex-direction:column;gap:5px}.page-heading>.pill{margin-top:5px}.page-heading h1{font-size:29px}.panel{padding:18px;border-radius:12px}.toolbar{align-items:start}.layout-split{grid-template-columns:1fr}.segmented{max-width:100%}.segmented button{padding:9px 12px}.panel-actions{align-items:stretch}.panel-actions .btn{padding:9px 11px}.action-side{justify-content:end}.step-track small{font-size:10px}.court-scene{min-height:116px}.choice{padding:11px}.quiz-question{font-size:18px!important}.timeline-layout,.contracts-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.form-grid .wide{grid-column:1}.contract-text{min-height:320px}.footer{font-size:9px;flex-direction:column}.toolbar-buttons{width:100%}.toolbar-buttons .btn{flex:1}.timeline-toolbar .segmented{width:100%;justify-content:space-around}.timeline-toolbar .segmented button{flex:1}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* V0.2 — shared portals and interactive study workspaces */
+.sidebar{overflow-y:auto;scrollbar-width:thin}
+.entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:26px}
+.entry-card{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:29px 29px 26px;min-height:295px;border:1px solid #dee6e3;border-radius:15px;background:#fdfefd;color:#2e4543;transition:transform .18s,border .18s,box-shadow .18s}
+.entry-card:hover{transform:translateY(-3px);border-color:#b9cfc6;box-shadow:0 12px 32px #39564d12}
+.entry-study{background:linear-gradient(145deg,#edf3f7,#fafdff)}
+.entry-work{background:linear-gradient(145deg,#ecf4ee,#fdfffd)}
+.entry-head{width:100%;display:flex;justify-content:space-between;align-items:flex-start;color:#6a8c92}
+.entry-work .entry-head{color:#648e7d}
+.entry-icon{display:grid;place-items:center;width:51px;height:51px;background:#ffffffbd;border:1px solid #ffffff;border-radius:13px}
+.entry-overline{font-size:10px;letter-spacing:.14em;color:#84999c;font-weight:800;margin-top:26px}
+.entry-card strong{font-size:27px;margin-top:8px;letter-spacing:-.05em}
+.entry-description{font-size:13px;color:#778a88;line-height:1.9;max-width:440px;margin:11px 0 19px}
+.entry-action{display:flex;align-items:center;gap:8px;margin-top:auto;font-size:12px;color:#4e8278;font-weight:750}
+.portal-back{display:flex;align-items:center;gap:7px;border:0;background:transparent;color:#82928b;padding:0 0 24px;font-size:12px}
+.portal-back:hover{color:#4a786e}
+.portal-hero{min-height:307px}
+.upcoming-tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:-2px 0 24px;padding:19px;background:#f8faf7;border:1px solid #e6ede7;border-radius:12px}
+.upcoming-tools h3{font-size:14px;margin-top:5px}
+.upcoming-tools>div{margin-right:auto}
+.upcoming-tools>span{font-size:12px;color:#819188;background:#fff;border:1px solid #e7ebe7;border-radius:7px;padding:10px 12px}
+.study-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 18px}
+.study-stats>div{background:#fff;border:1px solid #e4ebe5;border-radius:11px;padding:16px 19px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.study-stats span{font-size:12px;color:#84968e}
+.study-stats strong{font-size:18px;color:#476d64}
+.study-filters{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.study-workspace{max-width:810px;margin:0 auto}
+.flash-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 2px}
+.flash-card{width:100%;min-height:310px;background:linear-gradient(145deg,#fff,#f0f6f3);border:1px solid #d6e6dc;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:23px;padding:35px;box-shadow:0 12px 28px #365b4910;color:#34594d;text-align:center}
+.flash-card:hover{border-color:#aacdbc}
+.flash-card strong{font-size:clamp(18px,2.5vw,26px);max-width:660px;line-height:1.7}
+.flash-overline{font-size:11px;color:#739d8b;font-weight:800;letter-spacing:.14em}
+.flash-hint{font-size:12px;color:#869a91;line-height:1.8}
+.flash-revealed{background:linear-gradient(140deg,#edf4f8,#fafdfc);border-color:#aec8d5;color:#375a70}
+.flash-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0;flex-wrap:wrap}
+.flash-grade{display:flex;gap:8px;flex-wrap:wrap}
+.study-empty{display:flex;align-items:center;flex-direction:column;gap:13px;text-align:center;color:#67887b;padding:45px}
+.study-empty h2{color:#42665c}
+.study-empty p{color:#84928c;font-size:13px}
+.study-reset{margin-top:22px;display:flex;justify-content:flex-end}
+.knowledge-panel{padding:21px}
+.knowledge-guide{display:flex;gap:9px;align-items:center;color:#799187;font-size:12px;padding:7px 5px 18px}
+.knowledge-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px;background:radial-gradient(circle at 50% 50%,#e1ede5 0,#f7faf7 70%);border:1px solid #e6eee6;border-radius:13px}
+.knowledge-node{min-height:102px;border:1px solid #dce6df;border-radius:12px;background:#fff;color:#697b70;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:12px 10px;text-align:center;transition:.15s ease}
+.knowledge-node strong{font-size:14px;color:#4c625a}
+.knowledge-kind{font-size:10px;color:#9aa8a0}
+.knowledge-linked{background:#edf5f1;border-color:#a6c8b7}
+.knowledge-selected,.knowledge-selected:hover{background:#4f8376;border-color:#4f8376;color:white;box-shadow:0 8px 18px #5582702c}
+.knowledge-selected strong,.knowledge-selected .knowledge-kind{color:white}
+.knowledge-node:hover:not(.knowledge-selected){border-color:#7da995;transform:translateY(-1px)}
+.knowledge-detail{margin-bottom:18px}
+.knowledge-title{margin:13px 0;font-size:23px!important}
+.knowledge-detail .panel>p{font-size:13px;line-height:1.9;margin:8px 0 15px}
+.knowledge-question{border-radius:10px;background:#eef4f1;padding:15px;display:flex;align-items:start;gap:11px;color:#5b8779}
+.knowledge-question strong{font-size:12px}
+.knowledge-question p{color:#6b877b;margin-top:4px;font-size:12px}
+.related-list{display:flex;flex-direction:column;gap:7px}
+.related-item{display:flex;align-items:center;justify-content:space-between;background:#f7f9f7;border:1px solid #e8eee7;color:#55756a;border-radius:8px;padding:11px 12px;font-size:12px}
+.related-item:hover{background:#eef6f0;border-color:#c5d9ca}
+@media(max-width:900px){.sidebar{overflow-y:auto}.entry-grid{gap:12px}}
+@media(max-width:640px){.entry-grid{grid-template-columns:1fr}.entry-card{min-height:230px;padding:22px}.entry-card strong{font-size:24px}.entry-overline{margin-top:17px}.study-stats>div{flex-direction:column;align-items:flex-start;gap:6px;padding:12px}.study-stats strong{font-size:16px}.study-filters .segmented{width:100%;display:flex;overflow-x:auto}.study-filters .segmented button{flex:1}.flash-card{min-height:285px;padding:23px 17px}.flash-actions{gap:9px}.flash-actions>.btn{flex:1}.flash-grade{order:-1;width:100%}.flash-grade .btn{flex:1}.knowledge-map{gap:7px;padding:8px}.knowledge-node{min-height:83px;padding:8px 4px}.knowledge-node strong{font-size:12px}.knowledge-kind{font-size:9px}.knowledge-panel{padding:12px}}
