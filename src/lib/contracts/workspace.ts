@@ -1,6 +1,6 @@
-import type { ContractFinding } from '../contractRules';
+import type { ContractFinding } from '../contractRules.ts';
 import { reviewContract, SAMPLE_CONTRACT } from '../contractRules';
-import type { ContractImportResult, ContractFormat, ContractPageSpan, ContractIntegrity } from '../contractImport';
+import type { ContractImportResult, ContractFormat, ContractPageSpan, ContractIntegrity } from '../contractImport.ts';
 
 /** The canonical text is the only source for finding offsets; file bytes remain in memory only while parsing. */
 export type ContractOrigin = 'sample' | 'pasted' | 'uploaded' | 'edited';
