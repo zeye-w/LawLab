@@ -1,10 +1,10 @@
 # LawLab — 交互式法律学习与实务实验室
 
-> LawLab V0.2 is a browser-only educational and workflow prototype, **not a legal advice system**. All example cases are fictional.
+> LawLab V0.2.1 is a browser-only educational and workflow prototype, **not a legal advice system**. All example cases are fictional.
 
 LawLab 采用双入口：
 
-- **学生版 · LawLab Learn**：法律记忆卡片、法律知识图谱、法学闯关、法律推理训练、模拟法庭；
+- **学生版 · LawLab Learn**：法律记忆卡片、法律知识图谱、论文写作工作台、法学闯关、法律推理训练、模拟法庭；
 - **专业版 · LawLab Practice**：分为**诉讼业务**（证据链、案件时间线、法律推理与庭审训练）和**非诉业务**（本地合同规则审查）。
 
 专业版目前仅提供**教学与工作流示例**，不具备客户权限管理或专业级法律 AI 能力，也不适合处理真实客户的敏感资料。
@@ -17,6 +17,7 @@ LawLab 采用双入口：
 | `#learn` | 学生学习空间 | 模块导航及现有五项学习工具 |
 | `#flashcards` | 主动回忆卡 | 12 张原创卡；按学科/状态筛选，翻面、掌握/待复习标记及浏览器本地记录 |
 | `#knowledge` | 互动知识图谱 | 9 个法律概念节点；选中节点高亮相关概念、阅读解释并沿关联跳转 |
+| `#paper` | 法学论文写作 | 选题与论点、3 种论文结构模板、章节编辑及排序、手动参考资料核验、Markdown / JSON 导出、浏览器自动保存 |
 | `#quiz` | 法学闯关 | 5 道原创情境选择题、即时解析及进度 |
 | `#reasoning` | 法律推理 | 4 步模拟请求权审查；学生版与诉讼版共享 |
 | `#court` | 模拟法庭 | 原被告角色切换、四阶段预设庭审练习 |
@@ -41,18 +42,18 @@ npm run build
 npm run dev
 ```
 
-`npm test` 包含原有合同/时间线的 7 项测试和新增知识卡/图谱的 4 项完整性测试。建议在桌面与手机宽度下检查双入口、原有深链接、卡片翻面和状态筛选、知识图谱关联、诉讼/非诉功能入口及本地存储行为。
+`npm test` 包含原有合同/时间线的 7 项测试、知识卡/图谱的 4 项测试和论文写作逻辑的 4 项测试。建议在桌面与手机宽度下检查双入口、原有深链接、卡片翻面和状态筛选、知识图谱关联、诉讼/非诉功能入口及本地存储行为。
 
 ## 部署与版本安全
 
-Cloudflare Workers 上现有的线上网站由其绑定的 Git 分支构建。本 V0.2 开发分支**不会自动合并进 `main`**；在审核功能、测试和构建前，不要将新分支设置为生产发布分支。静态前端产物为 `dist`，构建命令为 `npm run build`。
+Cloudflare Workers 上现有的线上网站由其绑定的 Git 分支构建。论文模块在独立开发分支中审查，**未经验收不合并到 `main`**；在审核功能、测试和构建前，不要将新分支设置为生产发布分支。静态前端产物为 `dist`，构建命令为 `npm run build`。
 
 ## 数据与合规
 
-- V0.2 不调用 AI API，也没有后端、云端数据库或跨设备同步。
-- 记忆卡片标记（`lawlab:v02:flashcard-progress`）、原有答题进度和自定义时间线写入本机浏览器存储；共享设备可能看到这些数据。
+- V0.2.1 不调用 AI API，也没有后端、云端数据库或跨设备同步。论文模块是结构化作者写作工具，不自动生成正文、法条、案例或引文。
+- 记忆卡片标记（`lawlab:v02:flashcard-progress`）、论文项目（`lawlab:student-paper:v1`）、原有答题进度和自定义时间线写入本机浏览器存储；共享设备可能看到这些数据。论文内容须定期导出 JSON 备份。
 - 合同文本仅在当前页面的运行时内存中分析，无后台上传；仅支持本地规则提示，不能证明合同安全。
-- 所有案例、学习材料和概念图为演示，法律规则与个案结论应核对适用地区及现行法律。
+- 所有案例、学习材料和概念图为演示，法律规则与个案结论应核对适用地区及现行法律。论文引用资料仅由用户自己录入并标记「已核验」；网站不能核实法条效力、文献真实性或学术引注格式。
 - 请勿使用真实客户文件、隐私或商业机密测试；专业版上线处理真实材料之前，需完善授权、访问控制、加密、日志审计、数据删除、律师复核等机制。
 - 浏览器存储的学习和案件资料不会自动迁移到其他设备。
 
@@ -62,14 +63,18 @@ Cloudflare Workers 上现有的线上网站由其绑定的 Git 分支构建。�
 src/
   App.tsx                  双入口、三个子工作台、现有功能
   components/StudyTools.tsx 记忆卡片与可选知识图谱
+  components/PaperWorkspace.tsx 论文写作界面
+  components/paper.css       论文写作响应式样式
   data/study.ts             原创卡片与概念节点
   data/cases.ts             虚构案例数据
   lib/timeline.ts           事件排序、CSV 导出
   lib/contractRules.ts      本地规则引擎
+  lib/paper.ts              论文结构、导出与备份验证
   styles.css                响应式视觉样式
 tests/
   contractRules.test.ts     现有合同与时间线测试
-  study.test.ts             新增学习内容与图谱完整性测试
+  study.test.ts             学习内容与图谱完整性测试
+  paper.test.ts             论文工作台的结构与导出测试
 ```
 
 ## 许可证

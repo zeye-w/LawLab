@@ -3,19 +3,21 @@ import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronRight, CircleHelp, FileSearch,
   FileText, GitBranch, GraduationCap, Landmark, LayoutGrid, Menu, Network,
-  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, Upload, X, BrainCircuit, BriefcaseBusiness, Layers3
+  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, Upload, X, BrainCircuit, BriefcaseBusiness, Layers3, NotebookPen
 } from 'lucide-react';
 import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
 import { reviewContract, SAMPLE_CONTRACT, type ContractFinding } from './lib/contractRules';
 import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
+import { PaperWorkspace } from './components/PaperWorkspace';
 
-type ModuleId = 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
+type ModuleId = 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'paper' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
 type ToolId = Exclude<ModuleId, 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit'>;
 type ModuleIcon = typeof Landmark;
 const MODULES: { id: ToolId; label: string; subtitle: string; description: string; icon: ModuleIcon; color: string }[] = [
   { id: 'flashcards', label: '记忆卡片', subtitle: 'ACTIVE RECALL', description: '主动回忆、翻面核对、记录已掌握和待复习的知识。', icon: BrainCircuit, color: 'blue' },
   { id: 'knowledge', label: '知识图谱', subtitle: 'KNOWLEDGE GRAPH', description: '通过互动概念地图连接法律规范、事实和证据。', icon: Layers3, color: 'green' },
+  { id: 'paper', label: '论文写作', subtitle: 'ACADEMIC WRITING', description: '整理研究问题、撰写章节、管理与核验参考资料。', icon: NotebookPen, color: 'sand' },
   { id: 'court', label: '模拟法庭', subtitle: 'MOOT COURT', description: '扮演诉讼代理人，体验陈述、举证、质证与总结。', icon: Landmark, color: 'slate' },
   { id: 'reasoning', label: '法律推理', subtitle: 'LEGAL REASONING', description: '沿着请求权基础与构成要件，梳理法律问题。', icon: GitBranch, color: 'blue' },
   { id: 'evidence', label: '证据链实验室', subtitle: 'EVIDENCE LAB', description: '关联事实与证据，识别相互支持和证明缺口。', icon: Network, color: 'green' },
@@ -23,7 +25,7 @@ const MODULES: { id: ToolId; label: string; subtitle: string; description: strin
   { id: 'timeline', label: '案件时间线', subtitle: 'CASE TIMELINE', description: '编辑事实与程序节点，查看证据并导出时间线。', icon: CalendarDays, color: 'sand' },
   { id: 'contracts', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '用可解释的规则筛查条款风险，学习改写合同。', icon: FileSearch, color: 'rose' }
 ];
-const DEEP_LINKS = new Set<ModuleId>(['home','learn','practice','litigation','nonlit','flashcards','knowledge','court','reasoning','evidence','quiz','timeline','contracts']);
+const DEEP_LINKS = new Set<ModuleId>(['home','learn','practice','litigation','nonlit','flashcards','knowledge','paper','court','reasoning','evidence','quiz','timeline','contracts']);
 function getHashPage(): ModuleId {
   const value = window.location.hash.slice(1) as ModuleId;
   return DEEP_LINKS.has(value) ? value : 'home';
@@ -82,14 +84,14 @@ function ModuleHome({ navigate }: { navigate: (id: ModuleId) => void }) {
     </section>
     <div className="section-line"><div><span className="index-label">CHOOSE YOUR SPACE / 02</span><h2>选择工作台</h2></div><p>两种版本共享基础能力，不重复建设。</p></div>
     <div className="entry-grid">
-      <EntryCard icon={GraduationCap} overline="01 / LAWLAB LEARN" title="学生版" description="记忆卡片、知识图谱、法学闯关、推理训练与模拟法庭，让学习从背诵走向理解。" callout="进入学习空间" accent="study" onClick={()=>navigate('learn')}/>
+      <EntryCard icon={GraduationCap} overline="01 / LAWLAB LEARN" title="学生版" description="记忆卡片、知识图谱、论文写作、案例练习与模拟法庭，贯通学习和研究。" callout="进入学习空间" accent="study" onClick={()=>navigate('learn')}/>
       <EntryCard icon={BriefcaseBusiness} overline="02 / LAWLAB PRACTICE" title="专业版" description="按诉讼与非诉业务整理证据、时间线和合同审查流程。当前仅供示例训练与工作流演示。" callout="进入实务空间" accent="work" onClick={()=>navigate('practice')}/>
     </div>
     <Notice icon={ShieldCheck}>当前仍是离线演示版：学生与专业模式不需要账号，案例均为虚构；专业版不应上传或处理真实客户敏感材料，也不提供正式法律意见。</Notice>
   </>;
 }
 const PORTAL_TOOLS: Record<'learn'|'litigation'|'nonlit',ToolId[]> = {
-  learn:['flashcards','knowledge','quiz','reasoning','court'],
+  learn:['flashcards','knowledge','paper','quiz','reasoning','court'],
   litigation:['evidence','timeline','reasoning','court'],
   nonlit:['contracts']
 };
@@ -259,6 +261,7 @@ export default function App(){
       {navItem('learn','学习空间',GraduationCap)}
       {navItem('flashcards','记忆卡片',BrainCircuit)}
       {navItem('knowledge','知识图谱',Layers3)}
+      {navItem('paper','论文写作',NotebookPen)}
       {navItem('quiz','法学闯关',GraduationCap)}
       {navItem('reasoning','法律推理',GitBranch)}
       {navItem('court','模拟法庭',Landmark)}
@@ -271,10 +274,10 @@ export default function App(){
       {navItem('nonlit','非诉业务',FileText)}
       {navItem('contracts','合同审查',FileSearch)}
     </nav>
-    <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2 · LOCAL DEMONSTRATION</span></div></aside>
+    <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2.1 · LOCAL DEMONSTRATION</span></div></aside>
     {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地演示模式</span></div></header>
-      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractReview/>}</main>
+      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractReview/>}</main>
       <footer className="footer"><span>LAWLAB · LEARN THE LAW. PRACTICE THE LAW.</span><span>教学与流程演示 · 不构成法律意见</span></footer>
     </div>
   </div>;
