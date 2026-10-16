@@ -1,0 +1,211 @@
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import {
+  ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check,
+  CheckCircle2, ChevronRight, CircleHelp, FileSearch,
+  FileText, GitBranch, GraduationCap, Landmark, LayoutGrid, Menu, Network,
+  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, Upload, X
+} from 'lucide-react';
+import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
+import { reviewContract, SAMPLE_CONTRACT, type ContractFinding } from './lib/contractRules';
+import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
+
+type ModuleId = 'home' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
+type ModuleIcon = typeof Landmark;
+const MODULES: { id: Exclude<ModuleId,'home'>; number: string; label: string; subtitle: string; description: string; icon: ModuleIcon; color: string }[] = [
+  { id: 'court', number: '01', label: '模拟法庭', subtitle: 'MOOT COURT', description: '扮演诉讼代理人，体验陈述、举证、质证与总结。', icon: Landmark, color: 'slate' },
+  { id: 'reasoning', number: '02', label: '法律推理', subtitle: 'LEGAL REASONING', description: '沿着请求权基础与构成要件，梳理法律问题。', icon: GitBranch, color: 'blue' },
+  { id: 'evidence', number: '03', label: '证据链实验室', subtitle: 'EVIDENCE LAB', description: '关联事实与证据，识别相互支持和证明缺口。', icon: Network, color: 'green' },
+  { id: 'quiz', number: '04', label: '法学闯关', subtitle: 'LEGAL QUIZ', description: '完成原创情境题，获得即时反馈和知识回顾。', icon: GraduationCap, color: 'lavender' },
+  { id: 'timeline', number: '05', label: '案件时间线', subtitle: 'CASE TIMELINE', description: '编辑事实与程序节点，查看证据并导出时间线。', icon: CalendarDays, color: 'sand' },
+  { id: 'contracts', number: '06', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '用可解释的规则筛查条款风险，学习改写合同。', icon: FileSearch, color: 'rose' }
+];
+const DEEP_LINKS = new Set<ModuleId>(['home','court','reasoning','evidence','quiz','timeline','contracts']);
+function getHashPage(): ModuleId {
+  const value = window.location.hash.slice(1) as ModuleId;
+  return DEEP_LINKS.has(value) ? value : 'home';
+}
+function useBrowserState<T>(key: string, initial: T): [T, (value: T | ((old: T) => T)) => void] {
+  const [state, setState] = useState<T>(() => {
+    try { const saved = localStorage.getItem(key); return saved ? JSON.parse(saved) as T : initial; } catch { return initial; }
+  });
+  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(state)); } catch { /* storage may be unavailable */ } }, [key, state]);
+  return [state, setState];
+}
+function downloadText(name: string, content: string, mime: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function PageHeading({ eyebrow, title, description, right }: { eyebrow: string; title: string; description: string; right?: ReactNode }) {
+  return <div className="page-heading"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{right}</div>;
+}
+function Notice({ children, icon = CircleHelp }: { children: ReactNode; icon?: ModuleIcon }) {
+  const Icon = icon;
+  return <div className="notice"><Icon size={17} aria-hidden="true"/><div>{children}</div></div>;
+}
+function Pill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'green' | 'amber' | 'red' | 'blue' }) {
+  return <span className={`pill pill-${tone}`}>{children}</span>;
+}
+function Placeholder({ children }: { children: ReactNode }) { return <div className="placeholder">{children}</div>; }
+function ModuleHome({ navigate }: { navigate: (id: ModuleId) => void }) {
+  return <>
+    <section className="hero"><div className="hero-overline"><span className="hero-dot"/> AN INTERACTIVE LEGAL WORKSPACE</div>
+      <h1>让法律学习，<br/><em>从阅读走向实践。</em></h1>
+      <p>在一个空间里，练习法律推理、模拟庭审、构建证据链，也能整理案件时间线与审查合同。通过具体问题学习，而不只是背诵答案。</p>
+      <button className="btn primary" onClick={() => navigate('timeline')}>开始探索实验室 <ArrowRight size={17}/></button>
+      <div className="hero-art" aria-hidden="true"><div className="art-card art-a"><Scale size={27}/><span>REASONING</span></div><div className="art-line"/><div className="art-card art-b"><FileText size={24}/><span>CASE STUDY</span></div></div>
+    </section>
+    <div className="section-line"><div><span className="index-label">EXPLORE / 06</span><h2>六个学习空间</h2></div><p>所有模块均可直接体验，无需注册。</p></div>
+    <section className="module-grid" aria-label="六个功能模块">{MODULES.map(m => {
+      const Icon = m.icon; return <button key={m.id} className={`module-card module-${m.color}`} onClick={() => navigate(m.id)}>
+        <span className="module-card-top"><span className="module-symbol"><Icon size={23} strokeWidth={1.65}/></span><span className="module-number">{m.number}</span></span>
+        <span className="module-en">{m.subtitle}</span><span className="module-title">{m.label}</span><span className="module-description">{m.description}</span>
+        <span className="module-footer">进入模块 <ArrowRight size={16}/></span>
+      </button>;
+    })}</section>
+    <Notice icon={ShieldCheck}>目前为离线教学演示版：案例和规则为示例，不提供正式法律意见；合同文本不上传到服务器。</Notice>
+  </>;
+}
+function Court() {
+  const [role,setRole] = useState<'plaintiff' | 'defendant'>('plaintiff');
+  const [step,setStep] = useState(0);
+  const [answers,setAnswers] = useState<Array<number | null>>([null,null,null,null]);
+  const phases = role === 'plaintiff' ? COURT_PHASES : DEFENDANT_PHASES;
+  const phase = phases[step];
+  const answer = answers[step];
+  const completed = answers.every(value => value !== null);
+  function choose(index: number) { setAnswers(old => old.map((x,i) => i===step?index:x)); }
+  function reset(nextRole: 'plaintiff' | 'defendant' = role) { setRole(nextRole); setStep(0); setAnswers([null,null,null,null]); }
+  return <>
+    <PageHeading eyebrow="MODULE 01 / MOOT COURT" title="模拟法庭" description="围绕同一件虚构买卖合同纠纷，练习结构化陈述与证据质证。" right={<Pill tone="blue">情境演练</Pill>}/>
+    <div className="stack"><div className="toolbar"><span className="toolbar-label">你的角色</span><div className="segmented"><button className={role==='plaintiff'?'selected':''} onClick={()=>reset('plaintiff')}>原告代理人</button><button className={role==='defendant'?'selected':''} onClick={()=>reset('defendant')}>被告代理人</button></div></div>
+    <section className="panel"><div className="panel-head"><div><span className="eyebrow">CASE / 001</span><h2>一份迟到的设备订单</h2></div><Pill>虚构案例</Pill></div>
+      <p>双方约定交付一批设备，买方已支付预付款。交付日期到来后，双方对是否已协商延期产生争议。以下演练仅检查论证策略，不预测裁判结果。</p>
+      <div className="step-track">{phases.map((p,i)=><button title={`转到${p.title}`} aria-label={`转到第${i+1}阶段：${p.title}`} aria-current={i===step?'step':undefined} key={p.title} className={i===step?'current':answers[i]!==null?'done':''} onClick={()=>setStep(i)}><span>{answers[i]!==null?<Check size={14}/>:i+1}</span><small>{p.title}</small></button>)}</div>
+      <div className="court-scene"><span className="court-scene-label">SESSION {String(step+1).padStart(2,'0')} / 04</span><Landmark size={46} strokeWidth={1.25}/><div>{phase.title}</div></div>
+      <h3 className="question">{phase.prompt}</h3><div className="choice-list">{phase.choices.map((opt,i)=><button key={i} className={`choice ${answer===i?'choice-selected':''}`} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt.label}</span>{answer===i&&<CheckCircle2 size={18}/>}</button>)}</div>
+      {answer!==null && <div className={`feedback ${phase.choices[answer].emphasis==='good'?'positive':'caution'}`} role="status"><strong>即时反馈</strong><p>{phase.choices[answer].feedback}</p></div>}
+      <div className="panel-actions"><button className="btn subtle" disabled={step===0} onClick={()=>setStep(s=>s-1)}><ArrowLeft size={16}/> 上一步</button><div className="action-side">{completed && <Pill tone="green">四个阶段已作答</Pill>}{step<3?<button className="btn primary" disabled={answer===null} onClick={()=>setStep(s=>s+1)}>下一阶段 <ArrowRight size={16}/></button>:<button className="btn outline" onClick={()=>reset()}><RotateCcw size={16}/> 重新演练</button>}</div></div>
+    </section><Notice>这是预设情境反馈，不是真人法官或实时 AI。正式法律结论需结合适用法律、完整案卷和程序规则。</Notice></div>
+  </>;
+}
+const REASON_QUESTIONS = [
+  { title:'合同是否成立？', hint:'先核对当事人、意思表示、合同文本及可能影响成立的其他事实。', choices:[['成立','有合同文本和签署/合意线索。'],['不成立','需重新识别可能的其他请求权基础。'],['尚不清楚','继续收集签署、聊天记录等材料。']] },
+  { title:'付款义务是否履行？', hint:'确认付款数额、账户主体、付款节点与价款约定。', choices:[['已经付款','核对款项是否对应这份合同。'],['尚未付款','注意对履行顺序及责任判断的影响。'],['证据不足','需核对原始付款凭证与对账记录。']] },
+  { title:'交付义务是否履行？', hint:'核对合同期限、交付记录、通知及签收事实。', choices:[['未按约交付','应继续核实迟延原因及合同约定。'],['已经交付','核对交付内容是否符合约定。'],['存在争议','需要物流、签收和沟通等证据。']] },
+  { title:'是否存在影响请求的抗辩？', hint:'检查延期合意、同时履行抗辩、不可抗力等是否被主张并有相应依据。', choices:[['提出了具体抗辩','还要逐项核对事实和法律构成要件。'],['暂未提出','仍须考虑已知材料中的相关事实。'],['尚不清楚','补充对方答辩与证据材料。']] }
+] as const;
+function Reasoning() {
+  const [selected,setSelected] = useState<Array<number | null>>([null,null,null,null]);
+  const [step,setStep] = useState(0);
+  const answer = selected[step];
+  const stopped = step === 0 && answer !== null && answer !== 0;
+  const canNext = step<3 && answer !== null && !stopped;
+  function choose(v:number) { setSelected(old=>old.map((x,i)=>i===step?v:x)); }
+  function restart(){ setSelected([null,null,null,null]);setStep(0); }
+  return <>
+    <PageHeading eyebrow="MODULE 02 / LEGAL REASONING" title="法律推理决策树" description="先明确请求权基础，再检查事实、要件、反证与抗辩。"/>
+    <div className="layout-split"><div className="panel">
+      <div className="eyebrow">CLAIM ANALYSIS / STEP {String(step+1).padStart(2,'0')}</div><h2 className="panel-title">{REASON_QUESTIONS[step].title}</h2><p>{REASON_QUESTIONS[step].hint}</p>
+      <div className="choice-list spaced">{REASON_QUESTIONS[step].choices.map((choice,i)=><button key={i} className={`choice ${answer===i?'choice-selected':''}`} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span><strong>{choice[0]}</strong><small>{choice[1]}</small></span>{answer===i&&<CheckCircle2 size={18}/>}</button>)}</div>
+      {stopped&&<div className="feedback caution"><strong>当前分支需要进一步确认</strong><p>合同成立是合同请求权分析的重要前提。当前答案不足以沿原路径继续；可以补充事实或改从其他请求权基础分析。这不是案件败诉结论。</p></div>}
+      {step===3&&answer!==null&&<div className="feedback positive"><strong>本次分析路径已完成</strong><p>已记录四个判断节点。下一步应逐项对应具体法律依据、证据与相反解释，而不能仅凭勾选得出胜负判断。</p></div>}
+      <div className="panel-actions"><button className="btn subtle" disabled={step===0} onClick={()=>setStep(v=>v-1)}><ArrowLeft size={16}/> 返回</button><div className="action-side"><button className="btn ghost" onClick={restart}><RotateCcw size={15}/> 重置</button><button className="btn primary" disabled={!canNext} onClick={()=>setStep(v=>v+1)}>继续审查 <ArrowRight size={15}/></button></div></div>
+    </div><aside className="panel compact"><div className="eyebrow">REASONING PATH</div><h3>当前推理路径</h3><div className="reason-tree">{REASON_QUESTIONS.map((q,i)=><button key={i} className={`tree-item ${step===i?'tree-current':''}`} onClick={()=>setStep(i)}><span className="tree-dot">{selected[i]!==null?<Check size={13}/>:i+1}</span><span><strong>{q.title}</strong><small>{selected[i]===null?'尚未判断':q.choices[selected[i]][0]}</small></span></button>)}</div>
+      <Notice>这是一棵教学化的事实审查树，不是穷尽性法条检索，也不提供自动裁判结论。</Notice>
+    </aside></div>
+  </>;
+}
+function EvidenceLab() {
+  const [picked,setPicked] = useState<string[]>(['contract']);
+  const selected = EVIDENCE.filter(e=>picked.includes(e.id));
+  function toggle(id:string){setPicked(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);}
+  return <>
+    <PageHeading eyebrow="MODULE 03 / EVIDENCE LAB" title="证据链实验室" description="选择需要纳入分析的证据，比较证明目的、局限性和待核实事项。" right={<Pill tone="blue">虚构合同纠纷</Pill>}/>
+    <div className="layout-split evidence-layout"><div className="panel"><div className="panel-head"><h2>候选证据</h2><span className="muted tiny">已选 {picked.length} / {EVIDENCE.length}</span></div><div className="evidence-list">{EVIDENCE.map(e=><button key={e.id} className={`evidence-card ${picked.includes(e.id)?'evidence-on':''}`} onClick={()=>toggle(e.id)} aria-pressed={picked.includes(e.id)}><span className="checkmark">{picked.includes(e.id)&&<Check size={14}/>}</span><span className="grow"><strong>{e.title}</strong><small>{e.type}</small></span><ChevronRight size={16}/></button>)}</div><Notice>选择证据只改变当前分析清单，不代表证据已被采信，也不等于证明力评分。</Notice></div>
+    <div className="panel"><div className="panel-head"><div><div className="eyebrow">PROOF MAP</div><h2>待证事实与支撑关系</h2></div></div><div className="fact-focus"><Scale size={22}/><div><strong>核心待证事实</strong><p>合同关系、是否付款、是否按约交付以及是否协商延期。</p></div></div>
+      <div className="evidence-results">{selected.length?selected.map(e=><div className="evidence-result" key={e.id}><div className="result-title"><span className="result-mark"/><strong>{e.title}</strong></div><p><b>可能支持：</b>{e.purpose}</p><p className="limitation"><b>需要核查：</b>{e.caveat}</p></div>):<Placeholder>尚未选择证据。点击左侧卡片将其加入分析。</Placeholder>}</div>
+      <div className="gap-section"><div className="eyebrow">OPEN QUESTIONS</div><strong>目前仍需回答</strong><ul><li>交付标的、数量和期限是否明确？</li><li>是否存在有效的延期合意？</li><li>证据来源和原始载体能否核验？</li></ul></div>
+    </div></div>
+  </>;
+}
+function Quiz() {
+  const [index,setIndex] = useState(0);
+  const [responses,setResponses] = useBrowserState<Array<number|null>>('lawlab.quiz.v1',[null,null,null,null,null]);
+  const q = QUIZ[index], response=responses[index];
+  const score = responses.reduce((n,choice,i)=>n+(choice===QUIZ[i].answer?1:0),0);
+  const done = responses.every(answer=>answer!==null);
+  function choose(v:number){if(response===null)setResponses(old=>old.map((x,i)=>i===index?v:x));}
+  return <>
+    <PageHeading eyebrow="MODULE 04 / LEGAL QUIZ" title="法学闯关" description="5 道原创情境练习，完成选择后查看对应的法律分析。" right={<Pill tone="green">本机记录进度</Pill>}/>
+    <div className="quiz-shell panel"><div className="quiz-bar"><span>QUESTION {String(index+1).padStart(2,'0')} / 05</span><span>答对 {score} 题</span></div><div className="progress-track"><div style={{width:`${(responses.filter(a=>a!==null).length/QUIZ.length)*100}%`}}/></div>
+      <Pill tone="blue">{q.topic}</Pill><h2 className="quiz-question">{q.stem}</h2><div className="choice-list">{q.options.map((opt,i)=>{const revealed=response!==null; const correct=revealed&&i===q.answer;const wrong=revealed&&i===response&&response!==q.answer;return <button disabled={revealed} key={i} className={`choice ${correct?'choice-correct':wrong?'choice-wrong':''}`} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt}</span>{correct&&<CheckCircle2 size={18}/>}</button>;})}</div>
+      {response!==null&&<div className={`feedback ${response===q.answer?'positive':'caution'}`} role="status"><strong>{response===q.answer?'回答正确':'还需要再想想'}</strong><p>{q.explanation}</p></div>}
+      {done&&<div className="quiz-summary"><strong>本轮完成 · {score}/{QUIZ.length}</strong><p>可以返回之前的题目复习解析，也可以清除进度重新练习。</p></div>}
+      <div className="panel-actions"><button className="btn subtle" onClick={()=>setIndex(i=>Math.max(0,i-1))} disabled={index===0}><ArrowLeft size={16}/> 上一题</button><div className="action-side"><button className="btn ghost" onClick={()=>{setResponses(Array(QUIZ.length).fill(null));setIndex(0);}}><RotateCcw size={15}/> 重新开始</button><button className="btn primary" disabled={index===QUIZ.length-1||response===null} onClick={()=>setIndex(i=>i+1)}>下一题 <ArrowRight size={15}/></button></div></div>
+    </div>
+  </>;
+}
+const EMPTY_EVENT = { date: '', title:'', type: '事实' as EventType, detail:'', evidence:'' };
+function Timeline() {
+  const [events,setEvents] = useBrowserState<TimelineEvent[]>('lawlab.timeline.v1',INITIAL_EVENTS);
+  const [filter,setFilter] = useState<'全部' | EventType>('全部');
+  const [selectedId,setSelectedId] = useState('f1');
+  const [showForm,setShowForm] = useState(false);
+  const [draft,setDraft] = useState(EMPTY_EVENT);
+  const shown = sortTimeline(events.filter(e=>filter==='全部'||e.type===filter));
+  const current = shown.find(e=>e.id===selectedId) ?? shown[0];
+  function add(event:FormEvent<HTMLFormElement>){event.preventDefault();const dateOk=/^\d{4}-\d{2}-\d{2}$/.test(draft.date)&&!Number.isNaN(Date.parse(draft.date));if(!dateOk||!draft.title.trim())return; const item: TimelineEvent = {...draft, id:`user-${crypto.randomUUID()}`, title:draft.title.trim(), custom:true};setEvents(old=>[...old,item]);setFilter('全部');setSelectedId(item.id);setDraft(EMPTY_EVENT);setShowForm(false);}
+  function remove(id:string){setEvents(old=>old.filter(e=>e.id!==id));setSelectedId('');}
+  return <>
+    <PageHeading eyebrow="MODULE 05 / CASE TIMELINE" title="案件时间线生成器" description="把零散事实变成可检索的案件脉络。支持新建节点、筛选与 CSV 导出。"/>
+    <div className="toolbar timeline-toolbar"><div className="segmented">{(['全部','事实','程序'] as const).map(t=><button key={t} onClick={()=>setFilter(t)} className={filter===t?'selected':''}>{t==='全部'?'全部节点':`${t}时间线`}</button>)}</div><div className="toolbar-buttons"><button className="btn outline" onClick={()=>downloadText('lawlab-timeline.csv',timelineToCsv(sortTimeline(events)),'text/csv;charset=utf-8')}><ArrowDownToLine size={16}/> 导出 CSV</button><button className="btn primary" onClick={()=>setShowForm(value=>!value)}><Plus size={16}/> 添加事件</button></div></div>
+    {showForm&&<form className="panel new-event" onSubmit={add}><div className="panel-head"><h2>添加时间节点</h2><button type="button" className="icon-button" aria-label="关闭" onClick={()=>setShowForm(false)}><X size={18}/></button></div><div className="form-grid"><label>事件日期<input required type="date" value={draft.date} onChange={e=>setDraft(old=>({...old,date:e.target.value}))}/></label><label>节点类型<select value={draft.type} onChange={e=>setDraft(old=>({...old,type:e.target.value as EventType}))}><option>事实</option><option>程序</option></select></label><label className="wide">事件标题<input required maxLength={80} value={draft.title} placeholder="例如：对方发出补充协议" onChange={e=>setDraft(old=>({...old,title:e.target.value}))}/></label><label className="wide">事件描述<textarea value={draft.detail} rows={2} onChange={e=>setDraft(old=>({...old,detail:e.target.value}))}/></label><label className="wide">关联证据<input value={draft.evidence} placeholder="例如：邮件、合同、转账凭证" onChange={e=>setDraft(old=>({...old,evidence:e.target.value}))}/></label></div><div className="form-actions"><button className="btn primary" type="submit">保存事件</button></div></form>}
+    <div className="layout-split timeline-layout"><div className="panel"><div className="panel-head"><h2>事件脉络</h2><span className="muted tiny">{shown.length} 个节点</span></div><div className="timeline-stream">{shown.length?shown.map(event=><button key={event.id} className={`timeline-row ${current?.id===event.id?'timeline-selected':''}`} onClick={()=>setSelectedId(event.id)}><span className={`timeline-rail ${event.type==='程序'?'rail-procedure':''}`}><span/></span><span className="timeline-body"><span className="timeline-date">{event.date} · {event.type}</span><strong>{event.title}</strong><small>{event.evidence||'尚无关联证据'}</small></span><ChevronRight size={16}/></button>):<Placeholder>这一类别还没有事件。可切换筛选或新增节点。</Placeholder>}</div></div>
+    <aside className="panel detail-panel"><div className="eyebrow">EVENT DETAILS</div>{current?<><div className="detail-top"><Pill tone={current.type==='事实'?'green':'blue'}>{current.type}节点</Pill>{current.custom&&<button className="btn danger-quiet" onClick={()=>remove(current.id)}><Trash2 size={15}/> 删除</button>}</div><div className="detail-date">{current.date}</div><h2>{current.title}</h2><div className="detail-section"><span>事件说明</span><p>{current.detail||'暂无描述'}</p></div><div className="detail-section"><span>关联证据</span><p>{current.evidence||'尚未填写'}</p></div></>:<Placeholder>请选择左侧事件。</Placeholder>}</aside></div>
+    <Notice icon={ShieldCheck}>事件保存在当前浏览器的 localStorage。导出的 CSV 可能包含案件隐私信息，分享前请脱敏；演示节点不是实际法院记录。</Notice>
+  </>;
+}
+function ContractReview() {
+  const [text,setText] = useState(SAMPLE_CONTRACT);
+  const [findings,setFindings] = useState<ContractFinding[] | null>(null);
+  const [currentId,setCurrentId] = useState<string | null>(null);
+  const [uploadError,setUploadError] = useState('');
+  const current = findings?.find(f=>f.id===currentId)??findings?.[0];
+  const high=findings?.filter(f=>f.severity==='high').length??0;
+  function analyze(){ const result=reviewContract(text);setFindings(result);setCurrentId(result[0]?.id??null); }
+  function changeText(value:string){setText(value);setFindings(null);setCurrentId(null);setUploadError('');}
+  async function upload(event:ChangeEvent<HTMLInputElement>) {
+    const file=event.target.files?.[0];event.target.value='';if(!file)return;
+    if(file.size>1024*1024){setUploadError('仅支持不超过 1 MB 的纯文本文件。');return;}
+    if(!/\.txt$/i.test(file.name)){setUploadError('当前版本仅支持 .txt；请不要上传 PDF、Word 或含敏感信息的文件。');return;}
+    try { changeText(await file.text()); } catch {setUploadError('文件读取失败，请粘贴文本重试。');}
+  }
+  return <>
+    <PageHeading eyebrow="MODULE 06 / CONTRACT REVIEW" title="合同审查工作台" description="使用本地预设规则标记可疑条款，理解风险来源与常见修改方向。" right={<Pill tone="amber">规则演示 · 非 AI</Pill>}/>
+    <div className="layout-split contracts-layout"><div className="panel"><div className="panel-head"><h2>合同文本</h2><span className="muted tiny">仅在浏览器内处理</span></div><textarea className="contract-text" aria-label="需要审查的合同文本" spellCheck={false} value={text} onChange={e=>changeText(e.target.value)} placeholder="在这里粘贴脱敏后的合同文本…"/>
+      <div className="contract-actions"><label className="btn outline file-upload"><Upload size={16}/> 导入 TXT<input type="file" accept=".txt,text/plain" onChange={upload}/></label><button className="btn subtle" onClick={()=>changeText(SAMPLE_CONTRACT)}>载入示例</button><button className="btn primary" disabled={!text.trim()} onClick={analyze}><Search size={16}/> 开始审查</button></div>
+      {uploadError&&<p role="alert" className="input-error">{uploadError}</p>}<p className="muted tiny">不会将合同提交给外部模型或后台。请勿输入未经授权的真实合同和敏感个人信息。</p></div>
+      <div className="panel"><div className="panel-head"><div><div className="eyebrow">REVIEW FINDINGS</div><h2>风险提示</h2></div>{findings&&<Pill tone={high?'red':'amber'}>{findings.length} 项待核查</Pill>}</div>
+        {findings===null?<div className="empty-review"><FileSearch size={40} strokeWidth={1.3}/><h3>从一份合同开始</h3><p>粘贴内容或使用示例合同，点击「开始审查」查看规则匹配结果。</p></div>:findings.length===0?<div className="empty-review"><CheckCircle2 size={36}/><h3>未命中当前预设规则</h3><p>这并不代表合同无风险。规则覆盖范围有限，需要逐条人工审查。</p></div>:<><div className="findings-list">{findings.map(f=><button key={f.id} className={`finding ${current?.id===f.id?'finding-active':''}`} onClick={()=>setCurrentId(f.id)}><span className={`risk-line risk-${f.severity}`}/><span className="grow"><strong>{f.title}</strong><small>{f.quote?`“${f.quote.slice(0,44)}${f.quote.length>44?'…':''}”`:'文本未检测到明确约定'}</small></span><Pill tone={f.severity==='high'?'red':'amber'}>{f.severity==='high'?'高关注':'需关注'}</Pill></button>)}</div>
+        {current&&<div className="finding-detail"><div className="eyebrow">SELECTED FINDING</div><h3>{current.title}</h3><p><strong>为什么需要关注</strong><br/>{current.reason}</p><p><strong>审查与修改方向</strong><br/>{current.suggestion}</p>{current.quote&&<div className="quoted">匹配文本：{current.quote}</div>}</div>}</>}
+      </div></div><Notice icon={ShieldCheck}>当前版本是透明的正则规则筛查，不是实时 AI，也不能替代律师审核。未检出风险不等于合法、有效或公平。</Notice>
+  </>;
+}
+export default function App(){
+  const [page,setPage] = useState<ModuleId>(getHashPage);
+  const [menuOpen,setMenuOpen] = useState(false);
+  useEffect(()=>{function onHashChange(){setPage(getHashPage());}window.addEventListener('hashchange',onHashChange);return()=>window.removeEventListener('hashchange',onHashChange);},[]);
+  function navigate(id:ModuleId){window.location.hash=id;setPage(id);setMenuOpen(false);window.scrollTo({top:0,behavior:'smooth'});}
+  const title=page==='home'?'互动法律实验室':MODULES.find(m=>m.id===page)?.label;
+  return <div className="app-shell"><aside className={`sidebar ${menuOpen?'sidebar-open':''}`}><div className="sidebar-header"><button className="brand" onClick={()=>navigate('home')} aria-label="回到 LawLab 首页"><span className="brand-mark"><Scale size={23}/></span><span><strong>LawLab</strong><small>LEGAL LEARNING STUDIO</small></span></button><button className="close-menu icon-button" aria-label="关闭导航" onClick={()=>setMenuOpen(false)}><X size={19}/></button></div>
+    <div className="sidebar-group"><span className="side-heading">工作空间</span><button className={`nav-item ${page==='home'?'nav-active':''}`} onClick={()=>navigate('home')}><LayoutGrid size={18}/><span>总览</span></button></div>
+    <nav className="sidebar-group" aria-label="功能导航"><span className="side-heading">互动实验室</span>{MODULES.map(m=>{const Icon=m.icon;return <button key={m.id} className={`nav-item ${page===m.id?'nav-active':''}`} aria-current={page===m.id?'page':undefined} onClick={()=>navigate(m.id)}><Icon size={18}/><span>{m.label}</span><small>{m.number}</small></button>;})}</nav>
+    <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>让思考有据可循</strong><small>案例教学 · 实践演练</small></span></div><span className="version">V 0.1 · EDUCATIONAL DEMO</span></div></aside>
+    {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
+    <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地演示模式</span></div></header>
+      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractReview/>}</main>
+      <footer className="footer"><span>LAWLAB · DESIGN FOR LEGAL THINKING</span><span>教学演示 · 不构成法律意见</span></footer>
+    </div>
+  </div>;
+}
