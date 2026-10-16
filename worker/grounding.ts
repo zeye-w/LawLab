@@ -40,24 +40,60 @@ export function validateAnalysisRequest(body:unknown):AnalysisRequest {
   if(!passages.length)throw new RequestError('未提取到可用的正文文本；扫描 PDF 可能需要 OCR。');
   return {question:clean(body.question),passages};
 }
-// Pull the JSON object out of model text that may carry reasoning or a code fence around it.
+// Prefer final JSON over prose or code fences, never parse draft content in <think> blocks.
 function jsonFromText(text:string):unknown{
-  const body=text.replace(/<think>[\s\S]*?<\/think>/gi,'').replace(/```(?:json)?/gi,'').trim();
-  try{return JSON.parse(body) as unknown;}catch{/* fall through to the outermost object */}
-  const start=body.indexOf('{'),end=body.lastIndexOf('}');
-  if(start<0||end<=start)return null;
-  try{return JSON.parse(body.slice(start,end+1)) as unknown;}catch{return null;}
+  if(text.length>40000)return null;
+  const stripped=text.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
+  if(/<think>/i.test(stripped))return null; // Incomplete reasoning is not a final answer.
+  const body=stripped.replace(/\x60{3}(?:json)?/gi,'').trim();
+  try{return JSON.parse(body) as unknown;}catch{/* scan embedded JSON objects below */}
+  // Scan balanced objects, respecting quotes and escape sequences. Do not expose raw text.
+  let attempts=0;
+  for(let start=body.indexOf('{');start>=0&&attempts<24;start=body.indexOf('{',start+1)){
+    attempts++;
+    let depth=0,quoted=false,escaped=false;
+    for(let end=start;end<body.length;end++){
+      const ch=body[end];
+      if(quoted){
+        if(escaped){escaped=false;continue;}
+        if(ch==='\\'){escaped=true;continue;}
+        if(ch==='"')quoted=false;
+        continue;
+      }
+      if(ch==='"'){quoted=true;continue;}
+      if(ch==='{')depth++;
+      if(ch==='}'){
+        depth--;
+        if(depth===0){
+          try{
+            const candidate:unknown=JSON.parse(body.slice(start,end+1));
+            if(isRecord(candidate)&&Array.isArray(candidate.claims))return candidate;
+          }catch{/* continue */}
+          break;
+        }
+      }
+    }
+  }
+  return null;
 }
 function candidatePayload(output:unknown,depth=0):unknown{
-  if(depth>4)return null;
-  if(typeof output === 'string')return candidatePayload(jsonFromText(output),depth+1);
+  if(depth>6)return null;
+  if(typeof output==='string')return candidatePayload(jsonFromText(output),depth+1);
   if(!isRecord(output))return null;
   if(Array.isArray(output.claims))return output;
   if('response' in output)return candidatePayload(output.response,depth+1);
-  // OpenAI-compatible chat completion shape.
+  if('result' in output)return candidatePayload(output.result,depth+1);
   if(Array.isArray(output.choices)&&isRecord(output.choices[0])){
     const choice=output.choices[0];
-    return candidatePayload(isRecord(choice.message)?choice.message.content:choice.text,depth+1);
+    if(isRecord(choice.message)){
+      const contents=choice.message.content;
+      if(Array.isArray(contents)){
+        const parts=contents.filter(isRecord).map(part=>part.text).filter((t):t is string=>typeof t==='string');
+        return candidatePayload(parts.join('\n'),depth+1);
+      }
+      return candidatePayload(contents,depth+1);
+    }
+    return candidatePayload(choice.text,depth+1);
   }
   return null;
 }
@@ -65,6 +101,26 @@ function candidatePayload(output:unknown,depth=0):unknown{
 export function readModelPayload(output:unknown):{claims:unknown[]}|null{
   const raw=candidatePayload(output);
   return isRecord(raw)&&Array.isArray(raw.claims)?{claims:raw.claims}:null;
+}
+/** Only finite machine-readable reason categories may be returned to clients. */
+export function classifyModelOutputFailure(output:unknown):'truncated'|'empty'|'unparseable'{
+  if(isRecord(output)&&Array.isArray(output.choices)&&isRecord(output.choices[0])){
+    const choice=output.choices[0];
+    if(choice.finish_reason==='length'||choice.finish_reason==='max_tokens')return 'truncated';
+    if(isRecord(choice.message)){
+      const content=choice.message.content;
+      if(content===null||content==='')return 'empty';
+    }
+  }
+  let value:unknown=output;
+  if(isRecord(value)&&'response' in value)value=value.response;
+  if(typeof value==='string'){
+    if(!value.trim())return 'empty';
+    if(/<think>[\s\S]*$/i.test(value)&&!/<\/think>/i.test(value))return 'truncated';
+    const brace=value.indexOf('{');
+    if(brace>=0&&value.lastIndexOf('}')<brace)return 'truncated';
+  }
+  return 'unparseable';
 }
 /** Diagnostics contain aggregate counts only; never return raw AI output or submitted PDF text. */
 export type ClaimDiagnostics={
