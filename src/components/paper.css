@@ -1,0 +1,72 @@
+/* LawLab student paper writing workspace — quiet editorial style */
+.paper-page{max-width:1200px;margin:0 auto}
+.paper-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:1px 0 19px}
+.paper-overview>div{padding:18px 20px;background:#fff;border:1px solid #e4ebe6;border-radius:12px;display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.paper-overview span,.paper-overview small{color:#86968e;font-size:11px}
+.paper-overview strong{font-size:23px;color:#446c60;letter-spacing:-.025em}
+.paper-toolbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:18px}
+.paper-tabs{display:flex;align-items:center;background:#edf2ed;padding:4px;border-radius:10px;gap:3px}
+.paper-tabs button{border:0;padding:11px 16px;background:transparent;color:#6a8075;font-size:13px;font-weight:650;border-radius:8px}
+.paper-tabs button.active{color:#3d6e63;background:white;box-shadow:0 2px 7px #4768520f}
+.paper-toolbar-actions{display:flex;flex-wrap:wrap;gap:8px}
+.paper-toolbar-actions .btn{white-space:nowrap}
+.paper-import{position:relative;cursor:pointer;overflow:hidden}
+.paper-import input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.paper-import:focus-within{outline:3px solid #a2c5c3;outline-offset:3px}
+.paper-message{background:#e9f3ed;border:1px solid #c9dfd0;border-radius:10px;padding:12px 16px;margin-bottom:16px;color:#426957;font-size:13px;display:flex;justify-content:space-between;align-items:start;gap:8px}
+.paper-message button{border:0;background:transparent;color:inherit;font-size:18px}
+.paper-message-error{background:#fff4ed;border-color:#e9cab7;color:#956249}
+.paper-columns{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(285px,1fr);gap:16px;align-items:start}
+.paper-columns>.panel,.paper-panel{min-width:0}
+.paper-panel,.paper-outline,.paper-editor{padding:24px}
+.paper-field{display:flex;flex-direction:column;gap:7px;margin:15px 0 0;min-width:0}
+.paper-field label{color:#61746b;font-size:12px;font-weight:700}
+.paper-field input,.paper-field select,.paper-field textarea{width:100%;max-width:100%;border:1px solid #dce7de;border-radius:8px;background:#fdfefd;color:#354840;padding:11px 12px;font-size:13px;line-height:1.8;min-width:0}
+.paper-field textarea{resize:vertical}
+.paper-field input:focus,.paper-field textarea:focus,.paper-field select:focus{border-color:#8eb9a6}
+.paper-field input::placeholder,.paper-field textarea::placeholder{color:#a4aea7}
+.paper-checklist{display:flex;flex-direction:column;gap:15px;margin-top:17px}
+.paper-checklist>div{display:flex;align-items:center;gap:10px;color:#9ca9a1;font-size:13px}
+.paper-checklist svg{color:#c9d2cb;flex-shrink:0}
+.paper-checklist .paper-checked{color:#3d755d}
+.paper-checklist .paper-checked svg{color:#56a17c}
+.paper-advice{background:#f1f6f2;border:1px solid #e3ece5;border-radius:10px;padding:17px;margin:22px 0}
+.paper-advice strong{color:#476d5c;font-size:13px}
+.paper-advice p{color:#7e9183;font-size:12px;margin-top:7px;line-height:1.9}
+.paper-rotated{transform:rotate(180deg)}
+.paper-writing{grid-template-columns:minmax(240px,.75fr) minmax(0,1.6fr)}
+.paper-outline .panel-head{gap:10px}
+.paper-outline-list{display:flex;flex-direction:column;gap:9px;margin-top:15px}
+.paper-outline-item{border:1px solid #e4eae4;border-radius:10px;padding:9px;background:#fff;display:flex;align-items:center;gap:7px}
+.paper-outline-item.selected{background:#edf5ef;border-color:#afd2be}
+.paper-outline-main{display:flex;flex-direction:column;align-items:flex-start;gap:5px;flex:1;min-width:0;color:#405a4a;border:0;background:transparent;text-align:left;padding:3px}
+.paper-outline-main span{font-size:10px;color:#9aa99f;font-weight:800}
+.paper-outline-main strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.paper-outline-main small{font-size:10px;color:#8a9a8f}
+.paper-outline-actions{display:flex;flex-direction:column;gap:2px}
+.paper-outline-actions button{padding:5px;border:0;color:#8da299;background:transparent;border-radius:5px}
+.paper-outline-actions button:hover{background:#dae9e0}
+.paper-body{min-height:480px;resize:vertical;font-size:14px!important;line-height:2.0!important}
+.paper-editor-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:14px;color:#94a29a;font-size:11px}
+.paper-help{font-size:12px;color:#718578;line-height:1.9;margin-top:14px}
+.paper-empty{display:flex;align-items:center;flex-direction:column;gap:13px;text-align:center;padding:53px 16px;color:#718978}
+.paper-empty strong{color:#456c5d}
+.paper-empty p{color:#84998c;font-size:12px;max-width:450px}
+.paper-references{display:grid;grid-template-columns:1fr;gap:16px;margin-top:20px}
+.paper-ref{border:1px solid #e6ebe5;background:#fcfefd;border-radius:11px;padding:19px}
+.paper-ref-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.paper-ref-top>div{display:flex;gap:10px;align-items:center}
+.paper-state{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;background:#fff3e8;color:#a67c52;padding:5px 10px}
+.paper-state.verified{background:#e7f2e9;color:#437d55}
+.paper-icon-button{border:0;background:transparent;color:#9a847a;padding:7px;border-radius:7px}
+.paper-icon-button:hover{background:#f7eded}
+.paper-ref-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);column-gap:16px}
+.paper-ref-fields .paper-field:nth-child(n+3){grid-column:1/-1}
+.paper-verify{display:flex;align-items:center;gap:10px;margin-top:18px;color:#647d70;font-size:12px;line-height:1.6}
+.paper-verify input{width:16px;height:16px;accent-color:#53836e;flex-shrink:0}
+.paper-bottom{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap;margin:20px 0}
+.paper-bottom-note{display:flex;align-items:flex-start;gap:10px;color:#8b9b90;font-size:11px;max-width:850px;line-height:1.8}
+.paper-bottom-note svg{flex-shrink:0}
+.paper-bottom-note p{font-size:11px}
+@media(max-width:960px){.paper-columns{grid-template-columns:1fr}.paper-writing{grid-template-columns:1fr}.paper-outline-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.paper-overview{gap:7px}.paper-overview>div{flex-direction:column;gap:6px;padding:12px}.paper-overview strong{font-size:19px}.paper-overview small{font-size:10px}.paper-toolbar{align-items:stretch}.paper-tabs{width:100%}.paper-tabs button{flex:1;padding:10px 5px}.paper-toolbar-actions{width:100%}.paper-toolbar-actions .btn{flex:1;justify-content:center;font-size:11px;padding:9px 6px}.paper-panel,.paper-outline,.paper-editor{padding:15px}.paper-outline-list{grid-template-columns:1fr}.paper-ref{padding:12px}.paper-ref-fields{grid-template-columns:1fr}.paper-ref-fields .paper-field:nth-child(n+3){grid-column:auto}.paper-body{min-height:350px}.paper-bottom .btn{width:100%;justify-content:center}}
