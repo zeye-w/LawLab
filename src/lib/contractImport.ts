@@ -1,6 +1,11 @@
 /** Browser-only contract text import. Never uploads the original document to LawLab or an AI API. */
 export type ContractFormat = 'txt'|'doc'|'docx'|'pdf';
-export type ContractImportResult = {name:string;format:ContractFormat;text:string;warnings:string[];pages?:number};
+export type ContractIntegrity='complete'|'needs-review'|'blocked';
+export type ContractPageSpan={page:number;start:number;end:number};
+export type ContractImportResult = {
+  name:string;format:ContractFormat;text:string;warnings:string[];
+  pages?:number;pageSpans?:ContractPageSpan[];integrity:ContractIntegrity
+};
 
 export const MAX_CONTRACT_FILE_BYTES=8*1024*1024;
 export const MAX_CONTRACT_TEXT_CHARS=120000;
@@ -65,7 +70,9 @@ export function inspectDocxZip(data:Uint8Array):void{
   }
   if(offset!==cdOffset+cdSize||!documentFound)throw new Error('未找到 Word 正文内容，请检查是否选择了真正的 .docx 文件。');
 }
-async function extractPdf(data:Uint8Array):Promise<{text:string;pages:number;warnings:string[]}>{
+async function extractPdf(data:Uint8Array):Promise<{
+  text:string;pages:number;warnings:string[];pageSpans:ContractPageSpan[];integrity:ContractIntegrity
+}>{
   const [{getDocument,GlobalWorkerOptions},{default:workerSrc}]=await Promise.all([
     import('pdfjs-dist'),
     import('pdfjs-dist/build/pdf.worker.min.mjs?url')
@@ -75,7 +82,7 @@ async function extractPdf(data:Uint8Array):Promise<{text:string;pages:number;war
   let doc:Awaited<typeof task.promise>;
   try{doc=await task.promise;}
   catch{throw new Error('PDF 无法读取，可能已加密、损坏或格式不受支持。');}
-  const parts:string[]=[],blank:number[]=[];
+  const parts:string[]=[],blank:number[]=[];let extractedChars=0;
   try{
     if(doc.numPages>MAX_CONTRACT_PDF_PAGES)throw new Error('PDF 超过 80 页的完整解析上限。请拆分文件，不会截断后直接审查。');
     for(let i=1;i<=doc.numPages;i++){
@@ -85,16 +92,27 @@ async function extractPdf(data:Uint8Array):Promise<{text:string;pages:number;war
         ?item.str+(('hasEOL' in item&&item.hasEOL)?'\n':' '):'').join('');
       const text=normalizeContractText(segment);
       if(text.length<8)blank.push(i);
-      parts.push(text);
-      if(parts.reduce((n,t)=>n+t.length,0)>MAX_CONTRACT_TEXT_CHARS){
+      parts.push(text);extractedChars+=text.length;
+      if(extractedChars+2*Math.max(0,parts.length-1)>MAX_CONTRACT_TEXT_CHARS){
         throw new Error('PDF 文字超过 12 万字符上限，已停止解析。请拆分文件后分别审查。');
       }
       page.cleanup();
     }
   }finally{await doc.destroy();}
-  if(blank.length>0 && blank.length===doc.numPages)throw new Error('PDF 没有可提取的文字，可能是扫描件。请先 OCR 再上传。');
-  const warnings=blank.length?[('第 '+blank.slice(0,8).join('、')+' 页'+(blank.length>8?'等':'')+'未检测到正文文字，可能包含扫描内容；请人工核对这些页面。')]:[];
-  return {text:parts.join('\n\n'),pages:doc.numPages,warnings};
+  if(blank.length===parts.length)throw new Error('PDF 没有足够的可提取文字，可能是扫描件。请先 OCR 再上传。');
+  // Join ONLY nonempty pages, deriving coordinates from the exact canonical text.
+  // No synthetic mapping into PDF graphics coordinates is attempted.
+  const chunks:string[]=[];const pageSpans:ContractPageSpan[]=[];
+  let cursor=0;
+  for(let i=0;i<parts.length;i++){
+    if(!parts[i])continue;
+    if(chunks.length){chunks.push('\n\n');cursor+=2;}
+    const start=cursor;chunks.push(parts[i]);cursor+=parts[i].length;
+    pageSpans.push({page:i+1,start,end:cursor});
+  }
+  const warnings=blank.length?[('第 '+blank.slice(0,8).join('、')+' 页'+(blank.length>8?'等':'')+'正文极少或未提取到正文；这份文档可能包含扫描页面，审查范围不完整。')]:[];
+  return {text:chunks.join(''),pages:parts.length,warnings,pageSpans,
+    integrity:blank.length?'needs-review':'complete'};
 }
 export async function importContractFile(file:File):Promise<ContractImportResult>{
   const format=contractFormat(file.name);
@@ -106,7 +124,8 @@ export async function importContractFile(file:File):Promise<ContractImportResult
   if(!validContractHeader(format,bytes.subarray(0,8))){
     throw new Error('文件内容与扩展名不符。请确认不是误命名的其他格式。');
   }
-  let text='',pages:number|undefined;
+  let text='',pages:number|undefined,pageSpans:ContractPageSpan[]|undefined;
+  let integrity:ContractIntegrity='complete';
   const warnings:string[]=[];
   try{
     if(format==='txt'){
@@ -117,19 +136,33 @@ export async function importContractFile(file:File):Promise<ContractImportResult
       if(typeof extracted!=='string')throw new Error('无法解析旧版 .doc，可能是加密、损坏或早期 Word 文件。请在 Word 中另存为 .docx 后重试。');
       text=extracted;
       warnings.push('旧版 .doc 只提取主要正文；请人工核对批注、页眉页脚、图片、脚注及表格的遗漏风险。');
+      integrity='needs-review';
     }else if(format==='docx'){
       inspectDocxZip(bytes);
       const mammoth=await import('mammoth');
       const result=await mammoth.extractRawText({arrayBuffer:buffer});
       text=result.value;
       warnings.push('Word 格式、图片及修订痕迹不会参与规则筛查，请核对原件中的表格、批注和修订内容。');
+      integrity='needs-review';
     }else{
       const result=await extractPdf(bytes);
-      text=result.text;pages=result.pages;warnings.push(...result.warnings);
+      text=result.text;pages=result.pages;pageSpans=result.pageSpans;
+      integrity=result.integrity;warnings.push(...result.warnings);
     }
   }catch(e){
     if(e instanceof Error && /无法|超过|不支持|未找到|解压|结构|加密|OCR|过少|损坏|不完整|安全限制|错误/.test(e.message))throw e;
     throw new Error('文件正文解析失败，请确认文件未加密且包含可选择文字。');
   }
-  return {name:file.name,format,text:validatedContractText(text),warnings,pages};
+  const validated=validatedContractText(text);
+  // PDF coordinates must reference exactly the validated text, never pre-normalized bytes.
+  if(pageSpans?.length){
+    const mapped=pageSpans.map(span=>({...span}));
+    const originalChunks=mapped.map(span=>text.slice(span.start,span.end));
+    if(validated!==text||originalChunks.some((chunk,i)=>validated.slice(mapped[i].start,mapped[i].end)!==chunk)){
+      pageSpans=undefined;
+      integrity='needs-review';
+      warnings.push('正文经过额外规范化，原 PDF 页码映射不可可靠还原；请核对原件。');
+    }else{pageSpans=mapped;}
+  }
+  return {name:file.name,format,text:validated,warnings,pages,pageSpans,integrity};
 }
