@@ -1,0 +1,85 @@
+# LawLab V0.4 · Cloudflare Workers AI 部署与验收
+
+本版本在现有 `https://lawlab.edwardlab.workers.dev/` Worker 上增加 **AI 文献分析 API**，不需要本地 Ollama 或云 GPU 主机，也无需在前端暴露模型密钥。与 V0.3 相比，新版本可解析本地 PDF 的文字、调用 Cloudflare 托管的 Qwen，并验证模型返回的引文确实存在于发送的对应页文本。
+
+> **重要：仅合并代码或执行纯静态 `npm run build` 还不能启用 AI。** 当前部署方式必须同时发布 Worker 脚本与 `dist` 静态资源，并配置 AI Binding 与访问码。合并前先使用独立分支验收，不要在未完成配置时切换生产发布。
+
+## 1. 工作流程和数据边界
+
+- 浏览器用 `pdfjs-dist` 从选择的 PDF 提取**前 12 页、最多约 16,000 字符**；单页上限 2,200 字符。8 MB 以上 PDF 被拒绝，扫描版无 OCR。
+- 原始 PDF **不上传**；点击「开始 AI 提取」后，浏览器向同源 `POST /api/ai/analyze` 发送选中的页文本和研究问题。选中的文本将由 Cloudflare Workers AI 处理，而不是一直留在本地。
+- Cloudflare 模型固定为 `@cf/qwen/qwen3-30b-a3b-fp8`；返回最多 5 条候选观点。服务端核对其 `quote` 字符串是否出现在对应原始 `page` 的输入文本中。**仅核查字面匹配，不等于证明观点概括正确。**
+- 浏览器只有明确点击「加入参考资料与观点矩阵」后才把观点保存到现有论文项目的 localStorage，默认 `verified=false`。文献书目信息和法律结论仍须用户自己核验。
+- 浏览器中的 AI 访问码仅保存在组件内存，刷新后消失；不要使用公共设备或共享访问码。论文笔记默认仍在 localStorage，不跨设备同步。
+
+## 2. Cloudflare 账号配置
+
+该项目现有 `wrangler.jsonc` 定义：
+
+```json
+{
+  "name": "lawlab",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-10-16",
+  "ai": { "binding": "AI" },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "not_found_handling": "single-page-application"
+  }
+}
+```
+
+Worker 名称必须与你已有 Cloudflare Worker 保持一致。Cloudflare Workers AI 依赖 `env.AI`，Wrangler 会根据配置创建 AI Binding。
+
+**访问控制必需**：为 Worker 设置名为 `LAWLAB_AI_ACCESS_TOKEN` 的 **Secret**，长度至少 24 字符。可以在 Cloudflare dashboard 的 Workers & Pages → `lawlab` → Settings → Variables and Secrets 中新增（类型选 Secret），或登录 Wrangler 后使用：
+
+```bash
+npx wrangler login
+npx wrangler secret put LAWLAB_AI_ACCESS_TOKEN
+```
+
+切勿把访问码放入仓库、前端 `VITE_*` 变量、Cloudflare 明文变量或项目文档。本 API 的推理入口无访问码会返回 401；缺少绑定/Secret 会返回 503。API 同源调用，不允许跨域访问。
+
+### 构建与发布
+
+本地或可信 CI：
+
+```bash
+npm ci
+npm test
+npm run build
+npx wrangler deploy --dry-run
+npm run deploy:worker
+```
+
+**Git 自动部署注意**：若 Cloudflare 的 Git 项目当前只设置 `npm run build` 作为静态产物构建，必须修改其最终 **Deploy command** 为 `npx wrangler deploy`（并确保它在 `npm run build` 之后执行），或者在经过授权的 CI/CLI 中运行 `npm run deploy:worker`。否则服务器不会加载 `worker/index.ts`，AI 接口会报错或返回 HTML。不要将 `npx wrangler deploy` 加在没有 Cloudflare 身份授权的 GitHub 测试作业中。
+
+## 3. 免费额度与滥用防护
+
+Cloudflare Workers AI 的免费额度为 **每天 10,000 Neurons**（每日 00:00 UTC 重置），不是不限量。免费计划超出额度后请求失败；若将来升级付费方案，会产生超额计费。Workers AI 本地开发的真实推理也会消耗额度。
+
+- 服务端只接受 `POST /api/ai/analyze`，要求 Bearer 访问码、同源 Origin、JSON、38KB 请求体上限、最多 12 页、16,000 字符。
+- 公开给多个学生前，应改用独立用户登录、Cloudflare WAF/Rate Limiting、用户级次数限制和费用预算。单个共享访问码只适合作为本人测试原型，不是多租户认证系统。
+- Worker 不主动保存 PDF、用户论文或生成的全文，也不记录原始请求；仍需遵循 Cloudflare AI 数据处理条款及你对上传者的隐私告知。
+
+## 4. 手工验收清单
+
+1. 在 `/#paper` 中选择「AI 文献分析」；没有绑定时应显示未配置提示，不能消耗 AI 额度。
+2. 使用**经授权**的文字型 PDF（小于 8 MB），上传后显示文件名、总页数与已解析页面数。扫描版应清楚提示 OCR 限制。
+3. 研究设计中填写研究问题，输入管理员设置的访问码，执行分析；检查 API 的 `claims` 带页码与原文证据，找不到精确引文时不会显示为已核验观点。
+4. 点击「加入参考资料与观点矩阵」；查看该观点在「观点与逻辑」及「参考资料」中存在，且始终标记「待核验」。
+5. 导出 JSON 并刷新页面，再恢复备份，核对观点仍在；手机端检查按钮、卡片显示和 PDF 表单。
+6. 测试错误情况：访问码错误（401）、未配置（503）、无法提取文本、PDF 超大小、频繁请求（免费额度/限流），错误信息不能泄露 Secret。
+7. 确认 `/#court`、`/#contracts` 和旧版文献检索功能仍正常运行。
+
+## 5. 现有功能与下一版范围
+
+V0.4 的**云端 AI**聚焦于单篇 PDF 的有限页面内容及逐字引文校验，并非整篇文献的可靠全文分析。V0.5 才考虑多 PDF 解析、按章节选页、多文献自动论点归并、用户级配额与开放获取来源的合规全文抓取。不要宣称“已阅读全部论文”“完全防止幻觉”或“法律观点自动核实”。
+
+参考：
+- https://developers.cloudflare.com/workers-ai/get-started/workers-wrangler/
+- https://developers.cloudflare.com/workers-ai/models/qwen3-30b-a3b-fp8/
+- https://developers.cloudflare.com/workers/static-assets/binding/
+- https://developers.cloudflare.com/workers-ai/platform/pricing/
