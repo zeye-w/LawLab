@@ -1,10 +1,10 @@
 # LawLab — 交互式法律学习与实务实验室
 
-> LawLab V0.3 is a browser-only educational and workflow prototype, **not a legal advice system**. All example cases are fictional.
+> LawLab V0.4 is a browser-only educational and workflow prototype, **not a legal advice system**. All example cases are fictional.
 
 LawLab 采用双入口：
 
-- **学生版 · LawLab Learn**：法律记忆卡片、法律知识图谱、论文写作与文献研究工作台、法学闯关、法律推理训练、模拟法庭；
+- **学生版 · LawLab Learn**：法律记忆卡片、法律知识图谱、论文写作、文献研究与云端 AI 分析工作台、法学闯关、法律推理训练、模拟法庭；
 - **专业版 · LawLab Practice**：分为**诉讼业务**（证据链、案件时间线、法律推理与庭审训练）和**非诉业务**（本地合同规则审查）。
 
 专业版目前仅提供**教学与工作流示例**，不具备客户权限管理或专业级法律 AI 能力，也不适合处理真实客户的敏感资料。
@@ -17,7 +17,7 @@ LawLab 采用双入口：
 | `#learn` | 学生学习空间 | 模块导航及现有五项学习工具 |
 | `#flashcards` | 主动回忆卡 | 12 张原创卡；按学科/状态筛选，翻面、掌握/待复习标记及浏览器本地记录 |
 | `#knowledge` | 互动知识图谱 | 9 个法律概念节点；选中节点高亮相关概念、阅读解释并沿关联跳转 |
-| `#paper` | 法学论文写作 | 选题与论点、3 种论文结构模板、Crossref DOI 元数据检索、作者观点卡、论点对照与缺口检查、章节写作引导、Markdown / JSON 导出、本地自动保存 |
+| `#paper` | 法学论文写作 | 研究设计、Crossref DOI 检索、浏览器 PDF 解析、可选 Workers AI Qwen 观点提取、原文引证比对、观点与逻辑、Markdown/JSON 导出 |
 | `#quiz` | 法学闯关 | 5 道原创情境选择题、即时解析及进度 |
 | `#reasoning` | 法律推理 | 4 步模拟请求权审查；学生版与诉讼版共享 |
 | `#court` | 模拟法庭 | 原被告角色切换、四阶段预设庭审练习 |
@@ -59,9 +59,13 @@ Cloudflare Workers 上现有的线上网站由其绑定的 Git 分支构建。�
 
 **隐私提示：**检索词会发送到 Crossref。论文正文、文献整理笔记不发送到 Crossref 或 LawLab 服务器。此版本没有自动全文获取、中文法律数据库授权接口或付费大模型能力。
 
+## V0.4 Cloudflare AI 的配置
+
+新增的 `wrangler.jsonc` 包含 `AI` Binding、`worker/index.ts` 服务端和 `dist` 静态资源映射。**只有静态文件构建不会启用 AI API。** 需要管理员设置至少 24 字符的 `LAWLAB_AI_ACCESS_TOKEN` Secret，并部署完整 Worker（含两个限流 Binding：每 IP 每分钟 4 次、全站每分钟 20 次）；用户在 `#paper` →「AI 文献分析」中输入访问码。完整步骤、安全限制及 CI 验收见 [docs/CLOUDFLARE_AI_V04.md](docs/CLOUDFLARE_AI_V04.md)。此模块只处理前 12 页、合计不超过 16,000 字符，不声称完成整篇论文的全文分析；AI 观点卡须人工复核。
+
 ## 数据与合规
 
-- V0.3 不调用大模型 API，也没有后端、云端数据库或跨设备同步。论文模块可用浏览器直接查询 Crossref 公共 DOI 元数据（第三方服务可能限制访问），但不获取付费论文全文、不自动阅读论文、不自动生成完整正文、法条、案例或学术引文。
+- V0.4 增加**可选 Cloudflare Workers AI 模型推理**（使用访问码，依赖 AI Binding 和站点管理员 Secret），只在用户主动点击 AI 分析时，将 PDF 在浏览器提取的有限页文字发送到 Cloudflare 模型服务。PDF 文件本身不上传；未启用 AI 的站点仍保留纯本地编辑器和 Crossref 检索。不能获取付费论文全文、自动核实法律效力或保证模型观点正确。
 - 记忆卡片标记（`lawlab:v02:flashcard-progress`）、论文项目（`lawlab:student-paper:v1`）、原有答题进度和自定义时间线写入本机浏览器存储；共享设备可能看到这些数据。论文内容及手动整理的来源观点随项目保存，须定期导出 JSON 备份；旧版 JSON 备份兼容。
 - 合同文本仅在当前页面的运行时内存中分析，无后台上传；仅支持本地规则提示，不能证明合同安全。
 - 所有案例、学习材料和概念图为演示，法律规则与个案结论应核对适用地区及现行法律。Crossref DOI 题录只是元数据，用户必须自行核查原文、适用法域及引文；观点分类、对照、缺口提示与写作提纲都基于使用者手动填写的研究笔记，不是 AI 读取全文后的学术结论。
@@ -76,6 +80,10 @@ src/
   components/StudyTools.tsx 记忆卡片与可选知识图谱
   components/PaperWorkspace.tsx 论文写作界面
   components/ResearchWorkbench.tsx DOI 检索、观点对照、写作引导
+  components/AIAnalysis.tsx  云端 AI 辅助文献观点提取
+  lib/pdfExtract.ts        浏览器端 PDF 分页解析
+  worker/index.ts          Workers AI 认证与推理 API
+  worker/grounding.ts      文本限额和原文引证校验
   components/research.css      研究工作流响应式样式
   components/paper.css       论文写作响应式样式
   data/study.ts             原创卡片与概念节点
@@ -90,6 +98,7 @@ tests/
   study.test.ts             学习内容与图谱完整性测试
   paper.test.ts             论文工作台的结构与导出测试
   research.test.ts          文献元数据、观点对照及兼容性测试
+  ai-analysis.test.ts       原文证据核查与安全输入约束
 ```
 
 ## 许可证
