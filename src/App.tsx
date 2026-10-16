@@ -3,7 +3,7 @@ import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronRight, CircleHelp, FileSearch,
   FileText, GitBranch, GraduationCap, Landmark, LayoutGrid, Menu, Network,
-  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, X, BrainCircuit, BriefcaseBusiness, Layers3, NotebookPen
+  Plus, RotateCcw, Scale, ShieldCheck, Trash2, X, BrainCircuit, BriefcaseBusiness, Layers3, NotebookPen
 } from 'lucide-react';
 import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
 import { ContractWorkspace } from './components/contracts/ContractWorkspace';
