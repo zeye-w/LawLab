@@ -12,6 +12,9 @@ export type PaperProject = {
   references: PaperReference[];
 };
 export const PAPER_STORAGE_KEY = 'lawlab:student-paper:v1';
+export const PAPER_RECOVERY_KEY = 'lawlab:student-paper:recovery';
+export const MAX_SECTIONS = 60;
+export const MAX_REFERENCES = 200;
 export const PAPER_MODES: PaperMode[] = ['规范解释研究','案例评析','比较法研究'];
 export const REFERENCE_TYPES: ReferenceType[] = ['期刊论文','专著','法律规范','裁判文书','其他'];
 const TEMPLATES: Record<PaperMode,string[]> = {
@@ -25,6 +28,17 @@ export function createPaper(mode: PaperMode = '规范解释研究'): PaperProjec
     sections: TEMPLATES[mode].map((heading,index) => ({ id: 'section-'+(index+1), heading, body:'' })),
     references:[]
   };
+}
+// True when the outline differs from the untouched template, so replacing it would lose work.
+export function sectionsCustomized(paper: PaperProject): boolean {
+  const template = TEMPLATES[paper.mode];
+  return paper.sections.length !== template.length ||
+    paper.sections.some((section,index) => !!section.body.trim() || section.heading !== template[index]);
+}
+// Changing what a source is or where it is found invalidates the author's earlier verification.
+export function applyReferencePatch(ref: PaperReference, patch: Partial<PaperReference>): PaperReference {
+  const sourceChanged = patch.citation!==undefined || patch.locator!==undefined || patch.type!==undefined;
+  return {...ref,...patch,verified:patch.verified ?? (sourceChanged ? false : ref.verified)};
 }
 export function countPaperCharacters(paper: PaperProject): number {
   return paper.sections.reduce((count,section) => count + section.body.replace(/\s/g,'').length,0);
@@ -79,7 +93,6 @@ function record(value:unknown):value is Record<string,unknown> {
   return !!value && typeof value==='object' && !Array.isArray(value);
 }
 export function parsePaperBackup(text:string):PaperProject {
-  if(text.length>1800000) throw new Error('备份文件过大，已拒绝导入。');
   let raw:unknown;
   try {raw=JSON.parse(text);} catch {throw new Error('JSON 格式无效。');}
   if(!record(raw)||raw.format!=='lawlab-paper-backup'||raw.version!==1||!record(raw.paper)) {
@@ -89,8 +102,8 @@ export function parsePaperBackup(text:string):PaperProject {
   if(!stringWithin(p.title,300)||!stringWithin(p.question,6000)||
      !stringWithin(p.argument,6000)||!stringWithin(p.jurisdiction,200)||
      !PAPER_MODES.includes(p.mode as PaperMode)||
-     !Array.isArray(p.sections)||p.sections.length>60||p.sections.length<1||
-     !Array.isArray(p.references)||p.references.length>200) {
+     !Array.isArray(p.sections)||p.sections.length>MAX_SECTIONS||p.sections.length<1||
+     !Array.isArray(p.references)||p.references.length>MAX_REFERENCES) {
     throw new Error('论文备份字段不完整或超过大小限制。');
   }
   const sections:PaperSection[]=[];

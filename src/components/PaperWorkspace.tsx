@@ -2,16 +2,24 @@ import { useEffect,useState,type ChangeEvent } from 'react';
 import './paper.css';
 import { ArrowDown,ArrowDownToLine,ArrowLeft,ArrowUp,BookOpen,CheckCircle2,FilePlus2,FileText,Plus,RotateCcw,ShieldCheck,Trash2,Upload } from 'lucide-react';
 import {
-  PAPER_STORAGE_KEY, PAPER_MODES, REFERENCE_TYPES,createPaper,checkPaper,
+  PAPER_STORAGE_KEY, PAPER_RECOVERY_KEY, PAPER_MODES, REFERENCE_TYPES, MAX_SECTIONS, MAX_REFERENCES,
+  createPaper,checkPaper,sectionsCustomized,applyReferencePatch,
   countPaperCharacters,paperToMarkdown,exportPaperBackup,parsePaperBackup,
   type PaperMode,type PaperProject,type PaperReference,type PaperSection
 } from '../lib/paper';
 
-function readDraft():PaperProject {
-  try {
-    const stored=localStorage.getItem(PAPER_STORAGE_KEY);
-    return stored?parsePaperBackup(stored):createPaper();
-  } catch { return createPaper(); }
+type Draft={paper:PaperProject;raw:string;lockSave:boolean};
+// Never let an unreadable draft be silently replaced by the blank paper's autosave:
+// copy it aside first, and if even that fails, keep autosave off so the original stays put.
+function readDraft():Draft {
+  let stored:string|null=null;
+  try { stored=localStorage.getItem(PAPER_STORAGE_KEY); } catch { /* storage unavailable */ }
+  if(!stored) return {paper:createPaper(),raw:'',lockSave:false};
+  try { return {paper:parsePaperBackup(stored),raw:'',lockSave:false}; }
+  catch {
+    try { localStorage.setItem(PAPER_RECOVERY_KEY,stored); return {paper:createPaper(),raw:stored,lockSave:false}; }
+    catch { return {paper:createPaper(),raw:stored,lockSave:true}; }
+  }
 }
 function saveFile(name:string,content:string,mime:string) {
   const url=URL.createObjectURL(new Blob([content],{type:mime}));
@@ -29,15 +37,18 @@ function newId(prefix:string):string {
 type Tab='design'|'write'|'sources';
 const NAV:[Tab,string][]=[['design','研究设计'],['write','章节写作'],['sources','参考资料']];
 export function PaperWorkspace() {
-  const [paper,setPaper]=useState<PaperProject>(readDraft);
+  const [draft]=useState(readDraft);
+  const [paper,setPaper]=useState<PaperProject>(draft.paper);
+  const [lockSave,setLockSave]=useState(draft.lockSave);
   const [tab,setTab]=useState<Tab>('design');
   const [sectionId,setSectionId]=useState('');
   const [message,setMessage]=useState('');
   const [saveError,setSaveError]=useState('');
   useEffect(()=>{
+    if(lockSave) return;
     try { localStorage.setItem(PAPER_STORAGE_KEY,exportPaperBackup(paper));setSaveError(''); }
     catch { setSaveError('浏览器本地存储失败。请立即导出 JSON 备份，以免丢失内容。'); }
-  },[paper]);
+  },[paper,lockSave]);
   const checks=checkPaper(paper), completed=checks.filter(x=>x.ok).length;
   const active=paper.sections.find(s=>s.id===sectionId)??paper.sections[0];
   function updateField<K extends keyof Pick<PaperProject,'title'|'question'|'argument'|'jurisdiction'>>(field:K,value:PaperProject[K]){
@@ -45,7 +56,7 @@ export function PaperWorkspace() {
   }
   function changeMode(next:PaperMode) {
     if(next===paper.mode) return;
-    if(paper.sections.some(s=>s.body.trim())&&!window.confirm('更换论文结构会重置已写章节的正文。请先导出备份。确定继续吗？')) return;
+    if(sectionsCustomized(paper)&&!window.confirm('更换论文结构会用新模板替换全部章节，包括已修改的章节标题、顺序和正文。请先导出备份。确定继续吗？')) return;
     setPaper(old=>({...old,mode:next,sections:createPaper(next).sections}));
     setSectionId('');setMessage('已切换论文结构模板。');
   }
@@ -53,6 +64,7 @@ export function PaperWorkspace() {
     setPaper(old=>({...old,sections:old.sections.map(s=>s.id===id?{...s,...patch}:s)}));
   }
   function addSection() {
+    if(paper.sections.length>=MAX_SECTIONS) return;
     const id=newId('section-');
     setPaper(old=>({...old,sections:[...old.sections,{id,heading:'新增章节',body:''}]}));
     setSectionId(id);setTab('write');
@@ -71,13 +83,13 @@ export function PaperWorkspace() {
     });
   }
   function addReference() {
+    if(paper.references.length>=MAX_REFERENCES) return;
     const id=newId('source-');
     setPaper(old=>({...old,references:[...old.references,{id,type:'期刊论文',citation:'',locator:'',note:'',verified:false}]}));
     setTab('sources');setMessage('请填写真实来源及可供核验的出处；系统不会自动生成引文。');
   }
   function updateRef(id:string,patch:Partial<PaperReference>) {
-    setPaper(old=>({...old,references:old.references.map(r=>r.id===id?{...r,...patch,
-      verified:patch.citation!==undefined||patch.locator!==undefined?false:patch.verified??r.verified}:r)}));
+    setPaper(old=>({...old,references:old.references.map(r=>r.id===id?applyReferencePatch(r,patch):r)}));
   }
   function markVerified(ref:PaperReference,value:boolean){
     if(value&&(!ref.citation.trim()||!ref.locator.trim())){
@@ -128,6 +140,11 @@ export function PaperWorkspace() {
     </div>
     {message&&<div className="paper-message" role="status">{message}<button type="button" onClick={()=>setMessage('')} aria-label="关闭提示">×</button></div>}
     {saveError&&<div className="paper-message paper-message-error" role="alert">{saveError}</div>}
+    {draft.raw&&<div className="paper-message paper-message-error" role="alert"><span>{lockSave
+      ?'上次保存的论文无法读取，且无法另存副本。为避免覆盖原始数据，已暂停自动保存。请先下载原始存档；确认后再恢复自动保存。'
+      :'上次保存的论文无法读取，原始数据已另存在浏览器恢复区，当前显示空白论文。请下载原始存档并联系维护者协助恢复。'}</span>
+      <button type="button" className="btn outline" onClick={()=>saveFile('lawlab-paper-recovery.json',draft.raw,'application/json;charset=utf-8')}>下载原始存档</button>
+      {lockSave&&<button type="button" className="btn outline" onClick={()=>{if(window.confirm('恢复自动保存会覆盖无法读取的原始存档。确定已下载备份吗？'))setLockSave(false);}}>恢复自动保存</button>}</div>}
     {tab==='design'&&<div className="paper-columns">
       <section className="panel paper-panel">
         <div className="panel-head"><div><span className="eyebrow">01 / RESEARCH DESIGN</span><h2>研究设计</h2></div><BookOpen size={19}/></div>
@@ -146,7 +163,7 @@ export function PaperWorkspace() {
     </div>}
     {tab==='write'&&<div className="paper-columns paper-writing">
       <aside className="panel paper-outline">
-        <div className="panel-head"><div><span className="eyebrow">02 / OUTLINE</span><h2>论文提纲</h2></div><button type="button" className="btn outline" onClick={addSection}><Plus size={15}/> 章节</button></div>
+        <div className="panel-head"><div><span className="eyebrow">02 / OUTLINE</span><h2>论文提纲</h2></div><button type="button" className="btn outline" onClick={addSection} disabled={paper.sections.length>=MAX_SECTIONS} title={paper.sections.length>=MAX_SECTIONS?`最多 ${MAX_SECTIONS} 个章节`:undefined}><Plus size={15}/> 章节</button></div>
         <div className="paper-outline-list">{paper.sections.map((s,i)=><div key={s.id} className={'paper-outline-item '+(active?.id===s.id?'selected':'')}>
           <button type="button" className="paper-outline-main" onClick={()=>setSectionId(s.id)} aria-current={active?.id===s.id?'true':undefined}><span>{String(i+1).padStart(2,'0')}</span><strong>{s.heading||'未命名章节'}</strong><small>{s.body.replace(/\s/g,'').length} 字符</small></button>
           <div className="paper-outline-actions"><button type="button" aria-label={'上移'+s.heading} disabled={i===0} onClick={()=>moveSection(s.id,-1)}><ArrowUp size={14}/></button><button type="button" aria-label={'下移'+s.heading} disabled={i===paper.sections.length-1} onClick={()=>moveSection(s.id,1)}><ArrowDown size={14}/></button><button type="button" aria-label={'删除'+s.heading} disabled={paper.sections.length===1} onClick={()=>removeSection(s.id)}><Trash2 size={14}/></button></div>
@@ -161,7 +178,7 @@ export function PaperWorkspace() {
       </>}</section>
     </div>}
     {tab==='sources'&&<div className="panel paper-panel">
-      <div className="panel-head"><div><span className="eyebrow">03 / RESEARCH SOURCES</span><h2>参考资料与法律依据</h2></div><button type="button" className="btn primary" onClick={addReference}><FilePlus2 size={16}/> 添加来源</button></div>
+      <div className="panel-head"><div><span className="eyebrow">03 / RESEARCH SOURCES</span><h2>参考资料与法律依据</h2></div><button type="button" className="btn primary" onClick={addReference} disabled={paper.references.length>=MAX_REFERENCES} title={paper.references.length>=MAX_REFERENCES?`最多 ${MAX_REFERENCES} 条来源`:undefined}><FilePlus2 size={16}/> 添加来源</button></div>
       <p className="paper-help">由你录入真实文献信息、法条或裁判文书，记录 DOI / 正式链接 / 法条位置 / 案号。只有本人完成核验后才勾选「已核验」，本站不自动访问数据库或声称核验成功。</p>
       {paper.references.length===0?<div className="paper-empty"><BookOpen size={30}/><strong>尚未录入参考资料</strong><p>从你实际阅读过的文献、现行法律及裁判文书开始，避免虚构或未经核实的引用。</p><button className="btn outline" onClick={addReference}>添加第一条来源</button></div>:
         <div className="paper-references">{paper.references.map((ref,i)=><section className="paper-ref" key={ref.id}>
