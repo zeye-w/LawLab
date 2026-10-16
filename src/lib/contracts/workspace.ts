@@ -47,7 +47,7 @@ export function initialContractWorkspace(): ContractWorkspaceState {
 }
 
 export function withImportedContract(
-  state:ContractWorkspaceState,result:ContractImportResult
+  _state:ContractWorkspaceState,result:ContractImportResult
 ):ContractWorkspaceState {
   return {source:createSource(result.text,'uploaded',{
     name:result.name,format:result.format,pages:result.pages,
@@ -64,7 +64,7 @@ export function withEditedContract(state:ContractWorkspaceState,text:string):Con
   }),review:null,selectedFindingId:null};
 }
 
-export function withSampleContract(state:ContractWorkspaceState):ContractWorkspaceState {
+export function withSampleContract(_state:ContractWorkspaceState):ContractWorkspaceState {
   return {source:createSource(SAMPLE_CONTRACT,'sample'),review:null,selectedFindingId:null};
 }
 
