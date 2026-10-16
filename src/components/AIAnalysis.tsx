@@ -1,6 +1,7 @@
 import { useEffect,useState,type ChangeEvent,type Dispatch,type SetStateAction } from 'react';
 import { BookOpenCheck,FileUp,KeyRound,LoaderCircle,ShieldCheck,ShieldAlert,ArrowRight,ExternalLink } from 'lucide-react';
-import { extractPdfPages,type ExtractedPDF,MAX_PDF_BYTES } from '../lib/pdfExtract';
+import type { ExtractedPDF } from '../lib/pdfExtract';
+import { MAX_PDF_BYTES } from '../lib/pdfLimits';
 import {MAX_REFERENCES,type PaperProject,type PaperReference} from '../lib/paper';
 import {MODEL_ID,type VerifiedClaim} from '../../worker/grounding';
 import './ai.css';
@@ -33,7 +34,8 @@ export function AIAnalysis({paper,setPaper,goToLogic}:Props){
     setResult(null);setAdded([]);setError('');setFile(null);
     if(!item)return;
     setBusy(true);
-    try{setFile(await extractPdfPages(item));}
+    // pdf.js is large, so it is only downloaded once someone actually picks a PDF.
+    try{const {extractPdfPages}=await import('../lib/pdfExtract');setFile(await extractPdfPages(item));}
     catch(e){setError(e instanceof Error?e.message:'PDF 解析失败，请更换文件。');}
     finally{setBusy(false);}
   }

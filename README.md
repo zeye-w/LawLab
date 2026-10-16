@@ -61,7 +61,7 @@ Cloudflare Workers 上现有的线上网站由其绑定的 Git 分支构建。�
 
 ## V0.4 Cloudflare AI 的配置
 
-新增的 `wrangler.jsonc` 包含 `AI` Binding、`worker/index.ts` 服务端和 `dist` 静态资源映射。**只有静态文件构建不会启用 AI API。** 需要管理员设置至少 24 字符的 `LAWLAB_AI_ACCESS_TOKEN` Secret，并部署完整 Worker；用户在 `#paper` →「AI 文献分析」中输入访问码。完整步骤、安全限制及 CI 验收见 [docs/CLOUDFLARE_AI_V04.md](docs/CLOUDFLARE_AI_V04.md)。此模块只处理前 12 页、合计不超过 16,000 字符，不声称完成整篇论文的全文分析；AI 观点卡须人工复核。
+新增的 `wrangler.jsonc` 包含 `AI` Binding、`worker/index.ts` 服务端和 `dist` 静态资源映射。**只有静态文件构建不会启用 AI API。** 需要管理员设置至少 24 字符的 `LAWLAB_AI_ACCESS_TOKEN` Secret，并部署完整 Worker（含两个限流 Binding：每 IP 每分钟 4 次、全站每分钟 20 次）；用户在 `#paper` →「AI 文献分析」中输入访问码。完整步骤、安全限制及 CI 验收见 [docs/CLOUDFLARE_AI_V04.md](docs/CLOUDFLARE_AI_V04.md)。此模块只处理前 12 页、合计不超过 16,000 字符，不声称完成整篇论文的全文分析；AI 观点卡须人工复核。
 
 ## 数据与合规
 

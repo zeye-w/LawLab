@@ -22,6 +22,10 @@
   "main": "./worker/index.ts",
   "compatibility_date": "2026-10-16",
   "ai": { "binding": "AI" },
+  "ratelimits": [
+    { "name": "AI_IP_LIMITER", "namespace_id": "41001", "simple": { "limit": 4, "period": 60 } },
+    { "name": "AI_GLOBAL_LIMITER", "namespace_id": "41002", "simple": { "limit": 20, "period": 60 } }
+  ],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -31,7 +35,7 @@
 }
 ```
 
-Worker 名称必须与你已有 Cloudflare Worker 保持一致。Cloudflare Workers AI 依赖 `env.AI`，Wrangler 会根据配置创建 AI Binding。
+Worker 名称必须与你已有 Cloudflare Worker 保持一致。Cloudflare Workers AI 依赖 `env.AI`，Wrangler 会根据配置创建 AI Binding 和两个限流 Binding（Workers Rate Limiting）。缺少任一限流 Binding 时 AI 接口保持关闭（503），避免在没有频率限制的情况下消耗额度。
 
 **访问控制必需**：为 Worker 设置名为 `LAWLAB_AI_ACCESS_TOKEN` 的 **Secret**，长度至少 24 字符。可以在 Cloudflare dashboard 的 Workers & Pages → `lawlab` → Settings → Variables and Secrets 中新增（类型选 Secret），或登录 Wrangler 后使用：
 
@@ -60,8 +64,10 @@ npm run deploy:worker
 
 Cloudflare Workers AI 的免费额度为 **每天 10,000 Neurons**（每日 00:00 UTC 重置），不是不限量。免费计划超出额度后请求失败；若将来升级付费方案，会产生超额计费。Workers AI 本地开发的真实推理也会消耗额度。
 
-- 服务端只接受 `POST /api/ai/analyze`，要求 Bearer 访问码、同源 Origin、JSON、38KB 请求体上限、最多 12 页、16,000 字符。
-- 公开给多个学生前，应改用独立用户登录、Cloudflare WAF/Rate Limiting、用户级次数限制和费用预算。单个共享访问码只适合作为本人测试原型，不是多租户认证系统。
+- 服务端只接受 `POST /api/ai/analyze`，要求 Bearer 访问码、同源 Origin、JSON、最多 12 页、16,000 字符；请求体上限按 UTF-8 字节计算（约 57 KB），足以容纳 16,000 个汉字。
+- 每次调用模型前做两级限流：同一 IP 每分钟 4 次、全站每分钟 20 次，超出返回 429。Cloudflare 的限流按数据中心近似计数，不是精确的全局配额；它限制的是突发调用，不能代替每日预算。
+- 模型输出无法解析时返回 502「无法解析」，与「没有通过引文检查的观点」（200、空列表）区分；上游错误只返回通用提示，不把内部错误信息转给浏览器。
+- 公开给多个学生前，仍应改用独立用户登录、用户级次数限制和费用预算；内置限流只能减缓共享访问码泄露后的消耗。单个共享访问码只适合作为本人测试原型，不是多租户认证系统。
 - Worker 不主动保存 PDF、用户论文或生成的全文，也不记录原始请求；仍需遵循 Cloudflare AI 数据处理条款及你对上传者的隐私告知。
 
 ## 4. 手工验收清单
@@ -71,8 +77,9 @@ Cloudflare Workers AI 的免费额度为 **每天 10,000 Neurons**（每日 00:0
 3. 研究设计中填写研究问题，输入管理员设置的访问码，执行分析；检查 API 的 `claims` 带页码与原文证据，找不到精确引文时不会显示为已核验观点。
 4. 点击「加入参考资料与观点矩阵」；查看该观点在「观点与逻辑」及「参考资料」中存在，且始终标记「待核验」。
 5. 导出 JSON 并刷新页面，再恢复备份，核对观点仍在；手机端检查按钮、卡片显示和 PDF 表单。
-6. 测试错误情况：访问码错误（401）、未配置（503）、无法提取文本、PDF 超大小、频繁请求（免费额度/限流），错误信息不能泄露 Secret。
-7. 确认 `/#court`、`/#contracts` 和旧版文献检索功能仍正常运行。
+6. 测试错误情况：访问码错误（401）、未配置（503）、无法提取文本、PDF 超大小、频繁请求（429）、模型输出无法解析（502），错误信息不能泄露 Secret。
+7. **首次启用时用真实模型确认输出格式**：用一份中文文字型 PDF 跑一次分析，确认能返回观点卡。若始终提示「无法解析」，请记录 Cloudflare 日志中的错误类型并检查该模型当前的输出结构。
+8. 确认 `/#court`、`/#contracts` 和旧版文献检索功能仍正常运行。
 
 ## 5. 现有功能与下一版范围
 

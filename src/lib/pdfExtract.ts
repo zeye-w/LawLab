@@ -3,7 +3,7 @@ import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import {MAX_PAGE_CHARS,MAX_PAGES,MAX_TOTAL_CHARS,type SourcePassage} from '../../worker/grounding';
 
 GlobalWorkerOptions.workerSrc=workerSrc;
-export const MAX_PDF_BYTES=8*1024*1024;
+import { MAX_PDF_BYTES } from './pdfLimits';
 export type ExtractedPDF={fileName:string;totalPages:number;passages:SourcePassage[];sampledCharacters:number};
 export async function extractPdfPages(file:File):Promise<ExtractedPDF>{
   if(!/\.pdf$/i.test(file.name))throw new Error('请选择 PDF 格式的文献。');
