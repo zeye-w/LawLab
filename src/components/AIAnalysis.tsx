@@ -7,7 +7,7 @@ import {MODEL_ID,type VerifiedClaim} from '../../worker/grounding';
 import './ai.css';
 
 type Props={paper:PaperProject;setPaper:Dispatch<SetStateAction<PaperProject>>;goToLogic:()=>void};
-type AnalysisReply={claims:VerifiedClaim[];checkedPages:number[];model:string;notice:string};
+type AnalysisReply={claims:VerifiedClaim[];checkedPages:number[];model:string;notice:string;diagnostics?:{candidates:number;accepted:number;malformed:number;pageMissing:number;quoteNotFound:number;duplicates:number;layoutNormalized:number}};
 function uid():string{
   return typeof crypto!=='undefined'&&'randomUUID' in crypto
     ?crypto.randomUUID()
@@ -112,12 +112,13 @@ export function AIAnalysis({paper,setPaper,goToLogic}:Props){
     </section>
     {result&&<section className="panel paper-panel">
       <div className="panel-head"><div><span className="eyebrow">SOURCE-CONSTRAINED EXTRACTION</span><h2>可定位的观点卡</h2></div><span className="pill pill-blue">{result.claims.length} 条</span></div>
-      <p className="paper-help">以下观点通过了页码与逐字引文匹配检查，但尚未验证模型的概括是否准确。加入资料库后全部保持「待核验」状态，需要人工确认文献的真实作者、题名和观点。</p>
-      {result.claims.length===0?<div className="paper-empty"><ShieldAlert size={27}/><strong>没有通过原文引文检查的观点</strong><p>可能是提取页数不足、PDF 排版有误或模型没有返回逐字引文。试试更清晰的文字型 PDF。</p></div>:
+      <p className="paper-help">以下观点通过了同页原文字符匹配检查（允许忽略 PDF 排版产生的空白），但尚未验证模型的概括是否准确。加入资料库后全部保持「待核验」状态，需要人工确认文献的真实作者、题名和观点。</p>
+      {result.diagnostics&&<div className="ai-extraction-note" aria-live="polite"><ShieldAlert size={16}/><span>本次模型候选观点 {result.diagnostics.candidates} 条；通过证据检查 {result.diagnostics.accepted} 条；未匹配引文 {result.diagnostics.quoteNotFound} 条；页码不在分析范围 {result.diagnostics.pageMissing} 条；字段不合要求 {result.diagnostics.malformed} 条；重复 {result.diagnostics.duplicates} 条。仅显示统计，不传输或展示原始模型输出。{result.diagnostics.layoutNormalized>0?'其中 '+result.diagnostics.layoutNormalized+' 条采用了排版空格归一匹配。':''}</span></div>}
+      {result.claims.length===0?<div className="paper-empty"><ShieldAlert size={27}/><strong>{result.diagnostics?.candidates===0?'模型没有生成候选观点':'没有通过原文证据检查的观点'}</strong><p>{result.diagnostics?.candidates===0?'模型未输出可分析的观点。可缩小研究问题范围，或者换一篇文字结构清晰的 PDF 再试。':'候选观点的引文、页码或字段未满足证据检查要求。请查看上方统计信息，避免将未匹配的内容用作论文依据。'}</p></div>:
         <div className="ai-cards">{result.claims.map((claim,i)=>{
           const key=claim.page+'|'+claim.quote;
           return <article key={key} className="ai-claim">
-            <div className="ai-claim-top"><span className="eyebrow">POINT {String(i+1).padStart(2,'0')} · PDF P.{claim.page}</span><span className="ai-evidence-pass"><ShieldCheck size={14}/> 原文片段匹配</span></div>
+            <div className="ai-claim-top"><span className="eyebrow">POINT {String(i+1).padStart(2,'0')} · PDF P.{claim.page}</span><span className="ai-evidence-pass"><ShieldCheck size={14}/> {claim.evidenceMatch==='layout'?'排版空白归一匹配':'原文逐字匹配'}</span></div>
             <strong>{claim.claim}</strong>
             <blockquote>{claim.quote}</blockquote>
             <p className="ai-limitation"><b>局限或待核验事项：</b>{claim.limitation||'需人工审查。'}</p>
