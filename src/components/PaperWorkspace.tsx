@@ -1,4 +1,5 @@
 import { useEffect,useState,type ChangeEvent } from 'react';
+import './paper.css';
 import { ArrowDown,ArrowDownToLine,ArrowLeft,ArrowUp,BookOpen,CheckCircle2,FilePlus2,FileText,Plus,RotateCcw,ShieldCheck,Trash2,Upload } from 'lucide-react';
 import {
   PAPER_STORAGE_KEY, PAPER_MODES, REFERENCE_TYPES,createPaper,checkPaper,
