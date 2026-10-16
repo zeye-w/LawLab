@@ -19,7 +19,7 @@
 
 ## 本地开发
 
-要求 Node.js >= 20.19，建议 Node.js 22 LTS；npm。
+要求 Node.js 22 或更新版本及 npm。
 
 ```bash
 npm install
@@ -35,7 +35,7 @@ npm run build
 npm run preview
 ```
 
-注意：`npm test` 使用 Node.js 的 TypeScript 类型擦除能力（Node 22+），Node 20 可通过使用兼容的测试执行器替代。
+注意：`npm test` 使用 Node.js 22+ 的 TypeScript 类型擦除能力。
 
 ## 免费部署：Cloudflare Pages
 
