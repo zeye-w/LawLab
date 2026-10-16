@@ -70,6 +70,19 @@ export function inspectDocxZip(data:Uint8Array):void{
   }
   if(offset!==cdOffset+cdSize||!documentFound)throw new Error('未找到 Word 正文内容，请检查是否选择了真正的 .docx 文件。');
 }
+/** Text-only physical PDF page coordinates; blank pages contribute no characters. */
+export function flattenPdfTextPages(parts:readonly string[]):{text:string;pageSpans:ContractPageSpan[]} {
+  const chunks:string[]=[];const pageSpans:ContractPageSpan[]=[];
+  let cursor=0;
+  for(let i=0;i<parts.length;i++){
+    if(!parts[i])continue;
+    if(chunks.length){chunks.push('\\n\\n');cursor+=2;}
+    const start=cursor;chunks.push(parts[i]);cursor+=parts[i].length;
+    pageSpans.push({page:i+1,start,end:cursor});
+  }
+  return {text:chunks.join(''),pageSpans};
+}
+
 async function extractPdf(data:Uint8Array):Promise<{
   text:string;pages:number;warnings:string[];pageSpans:ContractPageSpan[];integrity:ContractIntegrity
 }>{
@@ -100,18 +113,9 @@ async function extractPdf(data:Uint8Array):Promise<{
     }
   }finally{await doc.destroy();}
   if(blank.length===parts.length)throw new Error('PDF 没有足够的可提取文字，可能是扫描件。请先 OCR 再上传。');
-  // Join ONLY nonempty pages, deriving coordinates from the exact canonical text.
-  // No synthetic mapping into PDF graphics coordinates is attempted.
-  const chunks:string[]=[];const pageSpans:ContractPageSpan[]=[];
-  let cursor=0;
-  for(let i=0;i<parts.length;i++){
-    if(!parts[i])continue;
-    if(chunks.length){chunks.push('\n\n');cursor+=2;}
-    const start=cursor;chunks.push(parts[i]);cursor+=parts[i].length;
-    pageSpans.push({page:i+1,start,end:cursor});
-  }
+  const {text:flattened,pageSpans}=flattenPdfTextPages(parts);
   const warnings=blank.length?[('第 '+blank.slice(0,8).join('、')+' 页'+(blank.length>8?'等':'')+'正文极少或未提取到正文；这份文档可能包含扫描页面，审查范围不完整。')]:[];
-  return {text:chunks.join(''),pages:parts.length,warnings,pageSpans,
+  return {text:flattened,pages:parts.length,warnings,pageSpans,
     integrity:blank.length?'needs-review':'complete'};
 }
 export async function importContractFile(file:File):Promise<ContractImportResult>{
