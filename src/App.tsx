@@ -3,15 +3,19 @@ import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronRight, CircleHelp, FileSearch,
   FileText, GitBranch, GraduationCap, Landmark, LayoutGrid, Menu, Network,
-  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, Upload, X
+  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, Upload, X, BrainCircuit, BriefcaseBusiness, Layers3
 } from 'lucide-react';
 import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
 import { reviewContract, SAMPLE_CONTRACT, type ContractFinding } from './lib/contractRules';
 import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
+import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 
-type ModuleId = 'home' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
+type ModuleId = 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
+type ToolId = Exclude<ModuleId, 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit'>;
 type ModuleIcon = typeof Landmark;
-const MODULES: { id: Exclude<ModuleId,'home'>; number: string; label: string; subtitle: string; description: string; icon: ModuleIcon; color: string }[] = [
+const MODULES: { id: ToolId; number: string; label: string; subtitle: string; description: string; icon: ModuleIcon; color: string }[] = [
+  { id: 'flashcards', number: '01', label: '记忆卡片', subtitle: 'ACTIVE RECALL', description: '主动回忆、翻面核对、记录已掌握和待复习的知识。', icon: BrainCircuit, color: 'blue' },
+  { id: 'knowledge', number: '02', label: '知识图谱', subtitle: 'KNOWLEDGE GRAPH', description: '通过互动概念地图连接法律规范、事实和证据。', icon: Layers3, color: 'green' },
   { id: 'court', number: '01', label: '模拟法庭', subtitle: 'MOOT COURT', description: '扮演诉讼代理人，体验陈述、举证、质证与总结。', icon: Landmark, color: 'slate' },
   { id: 'reasoning', number: '02', label: '法律推理', subtitle: 'LEGAL REASONING', description: '沿着请求权基础与构成要件，梳理法律问题。', icon: GitBranch, color: 'blue' },
   { id: 'evidence', number: '03', label: '证据链实验室', subtitle: 'EVIDENCE LAB', description: '关联事实与证据，识别相互支持和证明缺口。', icon: Network, color: 'green' },
@@ -19,7 +23,7 @@ const MODULES: { id: Exclude<ModuleId,'home'>; number: string; label: string; su
   { id: 'timeline', number: '05', label: '案件时间线', subtitle: 'CASE TIMELINE', description: '编辑事实与程序节点，查看证据并导出时间线。', icon: CalendarDays, color: 'sand' },
   { id: 'contracts', number: '06', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '用可解释的规则筛查条款风险，学习改写合同。', icon: FileSearch, color: 'rose' }
 ];
-const DEEP_LINKS = new Set<ModuleId>(['home','court','reasoning','evidence','quiz','timeline','contracts']);
+const DEEP_LINKS = new Set<ModuleId>(['home','learn','practice','litigation','nonlit','flashcards','knowledge','court','reasoning','evidence','quiz','timeline','contracts']);
 function getHashPage(): ModuleId {
   const value = window.location.hash.slice(1) as ModuleId;
   return DEEP_LINKS.has(value) ? value : 'home';
@@ -47,25 +51,72 @@ function Pill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neu
   return <span className={`pill pill-${tone}`}>{children}</span>;
 }
 function Placeholder({ children }: { children: ReactNode }) { return <div className="placeholder">{children}</div>; }
+function ModuleTiles({ ids, navigate }: { ids: ToolId[]; navigate: (id: ModuleId) => void }) {
+  return <section className="module-grid" aria-label="可使用的功能模块">{ids.map(id => {
+    const m = MODULES.find(item=>item.id===id)!;
+    const Icon=m.icon;
+    return <button key={id} className={`module-card module-${m.color}`} onClick={()=>navigate(id)}>
+      <span className="module-card-top"><span className="module-symbol"><Icon size={23} strokeWidth={1.65}/></span><span className="module-number">{m.number}</span></span>
+      <span className="module-en">{m.subtitle}</span><span className="module-title">{m.label}</span><span className="module-description">{m.description}</span>
+      <span className="module-footer">进入模块 <ArrowRight size={16}/></span>
+    </button>;
+  })}</section>;
+}
+function EntryCard({ icon: Icon, overline, title, description, callout, onClick, accent } : {
+  icon: ModuleIcon; overline: string; title: string; description: string; callout: string; onClick: () => void; accent: 'study'|'work'
+}) {
+  return <button className={`entry-card entry-${accent}`} onClick={onClick}>
+    <span className="entry-head"><span className="entry-icon"><Icon size={27} strokeWidth={1.6}/></span><ArrowRight size={20}/></span>
+    <span className="entry-overline">{overline}</span>
+    <strong>{title}</strong><span className="entry-description">{description}</span>
+    <span className="entry-action">{callout} <ArrowRight size={16}/></span>
+  </button>;
+}
 function ModuleHome({ navigate }: { navigate: (id: ModuleId) => void }) {
   return <>
-    <section className="hero"><div className="hero-overline"><span className="hero-dot"/> AN INTERACTIVE LEGAL WORKSPACE</div>
-      <h1>让法律学习，<br/><em>从阅读走向实践。</em></h1>
-      <p>在一个空间里，练习法律推理、模拟庭审、构建证据链，也能整理案件时间线与审查合同。通过具体问题学习，而不只是背诵答案。</p>
-      <button className="btn primary" onClick={() => navigate('timeline')}>开始探索实验室 <ArrowRight size={17}/></button>
-      <div className="hero-art" aria-hidden="true"><div className="art-card art-a"><Scale size={27}/><span>REASONING</span></div><div className="art-line"/><div className="art-card art-b"><FileText size={24}/><span>CASE STUDY</span></div></div>
+    <section className="hero portal-hero">
+      <div className="hero-overline"><span className="hero-dot"/> LAWLAB · LEARN & PRACTICE</div>
+      <h1>从理解法律，<br/><em>到运用法律。</em></h1>
+      <p>一个项目，两种工作方式。学生版帮你记忆知识、理解概念、练习推理；专业版按诉讼与非诉业务组织实务工具。</p>
+      <div className="hero-art" aria-hidden="true"><div className="art-card art-a"><GraduationCap size={27}/><span>LEARN</span></div><div className="art-line"/><div className="art-card art-b"><BriefcaseBusiness size={24}/><span>PRACTICE</span></div></div>
     </section>
-    <div className="section-line"><div><span className="index-label">EXPLORE / 06</span><h2>六个学习空间</h2></div><p>所有模块均可直接体验，无需注册。</p></div>
-    <section className="module-grid" aria-label="六个功能模块">{MODULES.map(m => {
-      const Icon = m.icon; return <button key={m.id} className={`module-card module-${m.color}`} onClick={() => navigate(m.id)}>
-        <span className="module-card-top"><span className="module-symbol"><Icon size={23} strokeWidth={1.65}/></span><span className="module-number">{m.number}</span></span>
-        <span className="module-en">{m.subtitle}</span><span className="module-title">{m.label}</span><span className="module-description">{m.description}</span>
-        <span className="module-footer">进入模块 <ArrowRight size={16}/></span>
-      </button>;
-    })}</section>
-    <Notice icon={ShieldCheck}>目前为离线教学演示版：案例和规则为示例，不提供正式法律意见；合同文本不上传到服务器。</Notice>
+    <div className="section-line"><div><span className="index-label">CHOOSE YOUR SPACE / 02</span><h2>选择工作台</h2></div><p>两种版本共享基础能力，不重复建设。</p></div>
+    <div className="entry-grid">
+      <EntryCard icon={GraduationCap} overline="01 / LAWLAB LEARN" title="学生版" description="记忆卡片、知识图谱、法学闯关、推理训练与模拟法庭，让学习从背诵走向理解。" callout="进入学习空间" accent="study" onClick={()=>navigate('learn')}/>
+      <EntryCard icon={BriefcaseBusiness} overline="02 / LAWLAB PRACTICE" title="专业版" description="按诉讼与非诉业务整理证据、时间线和合同审查流程。当前仅供示例训练与工作流演示。" callout="进入实务空间" accent="work" onClick={()=>navigate('practice')}/>
+    </div>
+    <Notice icon={ShieldCheck}>当前仍是离线演示版：学生与专业模式不需要账号，案例均为虚构；专业版不应上传或处理真实客户敏感材料，也不提供正式法律意见。</Notice>
   </>;
 }
+const PORTAL_TOOLS: Record<'learn'|'litigation'|'nonlit',ToolId[]> = {
+  learn:['flashcards','knowledge','quiz','reasoning','court'],
+  litigation:['evidence','timeline','reasoning','court'],
+  nonlit:['contracts']
+};
+function Portal({ kind, navigate }: { kind: 'learn'|'practice'|'litigation'|'nonlit'; navigate:(id:ModuleId)=>void }) {
+  if (kind==='practice') return <>
+    <PageHeading eyebrow="LAWLAB PRACTICE / CHOOSE PRACTICE" title="专业版 · 实务工作台" description="先选择业务领域。诉讼以案件事实和证据为主线；非诉以合同与交易风险为主线。"/>
+    <div className="entry-grid">
+      <EntryCard icon={Landmark} overline="LITIGATION / 诉讼" title="诉讼业务" description="组织待证事实与证据链，整理程序时间线、请求权与抗辩，并开展庭审情境演练。" callout="进入诉讼工作台" accent="study" onClick={()=>navigate('litigation')}/>
+      <EntryCard icon={FileText} overline="NON-LITIGATION / 非诉" title="非诉业务" description="基于本地透明规则审查示例合同条款，识别需要进一步核对的风险及修改方向。" callout="进入非诉工作台" accent="work" onClick={()=>navigate('nonlit')}/>
+    </div>
+    <Notice icon={ShieldCheck}>专业版当前为流程原型，没有客户权限管理、律师复核记录或专业级 AI 审查。请仅使用虚构及脱敏示例。</Notice>
+  </>;
+  const data={
+    learn:{eyebrow:'LAWLAB LEARN / STUDENT',title:'学生版 · 学习空间',description:'先回忆概念，再建立知识联系，最后通过案例练习运用。',back:'home' as ModuleId,backLabel:'返回双版本首页'},
+    litigation:{eyebrow:'LAWLAB PRACTICE / LITIGATION',title:'诉讼业务工作台',description:'以待证事实为线索，关联证据、时间线、请求权及庭审准备。',back:'practice' as ModuleId,backLabel:'返回专业版'},
+    nonlit:{eyebrow:'LAWLAB PRACTICE / NON-LITIGATION',title:'非诉业务工作台',description:'从合同条款入手，提示风险、审查理由及可讨论的修改方向。',back:'practice' as ModuleId,backLabel:'返回专业版'}
+  }[kind];
+  return <>
+    <button className="portal-back" onClick={()=>navigate(data.back)}><ArrowLeft size={16}/>{data.backLabel}</button>
+    <PageHeading eyebrow={data.eyebrow} title={data.title} description={data.description}/>
+    <div className="section-line"><div><span className="index-label">TOOLS / {String(PORTAL_TOOLS[kind].length).padStart(2,'0')}</span><h2>可用工具</h2></div></div>
+    <ModuleTiles ids={PORTAL_TOOLS[kind]} navigate={navigate}/>
+    {kind==='nonlit'&&<div className="upcoming-tools"><div><span className="eyebrow">COMING LATER</span><h3>下一阶段方向</h3></div><span>合同修订对比</span><span>法律尽职调查</span><span>合规审查</span></div>}
+    <Notice icon={ShieldCheck}>{kind==='learn'?'本地学习记录仅保存在此设备；此版本的学习内容不能代替查阅现行有效法律。':'只用于虚构案例与功能演示，不处理真实委托案件；分析结果不能替代专业人员复核。'}</Notice>
+  </>;
+}
+
 function Court() {
   const [role,setRole] = useState<'plaintiff' | 'defendant'>('plaintiff');
   const [step,setStep] = useState(0);
@@ -197,15 +248,34 @@ export default function App(){
   const [menuOpen,setMenuOpen] = useState(false);
   useEffect(()=>{function onHashChange(){setPage(getHashPage());}window.addEventListener('hashchange',onHashChange);return()=>window.removeEventListener('hashchange',onHashChange);},[]);
   function navigate(id:ModuleId){window.location.hash=id;setPage(id);setMenuOpen(false);window.scrollTo({top:0,behavior:'smooth'});}
-  const title=page==='home'?'互动法律实验室':MODULES.find(m=>m.id===page)?.label;
-  return <div className="app-shell"><aside className={`sidebar ${menuOpen?'sidebar-open':''}`}><div className="sidebar-header"><button className="brand" onClick={()=>navigate('home')} aria-label="回到 LawLab 首页"><span className="brand-mark"><Scale size={23}/></span><span><strong>LawLab</strong><small>LEGAL LEARNING STUDIO</small></span></button><button className="close-menu icon-button" aria-label="关闭导航" onClick={()=>setMenuOpen(false)}><X size={19}/></button></div>
-    <div className="sidebar-group"><span className="side-heading">工作空间</span><button className={`nav-item ${page==='home'?'nav-active':''}`} onClick={()=>navigate('home')}><LayoutGrid size={18}/><span>总览</span></button></div>
-    <nav className="sidebar-group" aria-label="功能导航"><span className="side-heading">互动实验室</span>{MODULES.map(m=>{const Icon=m.icon;return <button key={m.id} className={`nav-item ${page===m.id?'nav-active':''}`} aria-current={page===m.id?'page':undefined} onClick={()=>navigate(m.id)}><Icon size={18}/><span>{m.label}</span><small>{m.number}</small></button>;})}</nav>
-    <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>让思考有据可循</strong><small>案例教学 · 实践演练</small></span></div><span className="version">V 0.1 · EDUCATIONAL DEMO</span></div></aside>
+  const pageLabels: Partial<Record<ModuleId,string>> = {home:'选择工作台',learn:'学生版',practice:'专业版',litigation:'诉讼业务',nonlit:'非诉业务'};
+  const title=pageLabels[page]??MODULES.find(m=>m.id===page)?.label??'工作空间';
+  function navItem(id:ModuleId, label:string, Icon:ModuleIcon){
+    return <button key={id} className={`nav-item ${page===id?'nav-active':''}`} aria-current={page===id?'page':undefined} onClick={()=>navigate(id)}><Icon size={18}/><span>{label}</span></button>;
+  }
+  return <div className="app-shell"><aside className={`sidebar ${menuOpen?'sidebar-open':''}`}><div className="sidebar-header"><button className="brand" onClick={()=>navigate('home')} aria-label="回到 LawLab 首页"><span className="brand-mark"><Scale size={23}/></span><span><strong>LawLab</strong><small>LEARN & PRACTICE</small></span></button><button className="close-menu icon-button" aria-label="关闭导航" onClick={()=>setMenuOpen(false)}><X size={19}/></button></div>
+    <div className="sidebar-group"><span className="side-heading">总览</span>{navItem('home','选择工作台',LayoutGrid)}</div>
+    <nav className="sidebar-group" aria-label="学生版导航"><span className="side-heading">学生版 · LEARN</span>
+      {navItem('learn','学习空间',GraduationCap)}
+      {navItem('flashcards','记忆卡片',BrainCircuit)}
+      {navItem('knowledge','知识图谱',Layers3)}
+      {navItem('quiz','法学闯关',GraduationCap)}
+      {navItem('reasoning','法律推理',GitBranch)}
+      {navItem('court','模拟法庭',Landmark)}
+    </nav>
+    <nav className="sidebar-group" aria-label="专业版导航"><span className="side-heading">专业版 · PRACTICE</span>
+      {navItem('practice','实务工作台',BriefcaseBusiness)}
+      {navItem('litigation','诉讼业务',Landmark)}
+      {navItem('evidence','证据链实验室',Network)}
+      {navItem('timeline','案件时间线',CalendarDays)}
+      {navItem('nonlit','非诉业务',FileText)}
+      {navItem('contracts','合同审查',FileSearch)}
+    </nav>
+    <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2 · LOCAL DEMONSTRATION</span></div></aside>
     {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地演示模式</span></div></header>
-      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractReview/>}</main>
-      <footer className="footer"><span>LAWLAB · DESIGN FOR LEGAL THINKING</span><span>教学演示 · 不构成法律意见</span></footer>
+      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractReview/>}</main>
+      <footer className="footer"><span>LAWLAB · LEARN THE LAW. PRACTICE THE LAW.</span><span>教学与流程演示 · 不构成法律意见</span></footer>
     </div>
   </div>;
 }
