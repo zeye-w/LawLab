@@ -47,6 +47,7 @@
 .paper-outline-actions button{padding:5px;border:0;color:#8da299;background:transparent;border-radius:5px}
 .paper-outline-actions button:hover{background:#dae9e0}
 .paper-body{min-height:480px;resize:vertical;font-size:14px!important;line-height:2.0!important}
+.paper-notes{margin-top:6px}.paper-notes textarea{background:#f8faf7;font-size:13px}
 .paper-editor-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:14px;color:#94a29a;font-size:11px}
 .paper-help{font-size:12px;color:#718578;line-height:1.9;margin-top:14px}
 .paper-empty{display:flex;align-items:center;flex-direction:column;gap:13px;text-align:center;padding:53px 16px;color:#718978}

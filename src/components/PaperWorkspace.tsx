@@ -1,8 +1,9 @@
 import { useEffect,useState,type ChangeEvent } from 'react';
 import './paper.css';
+import { LiteratureSearch,ArgumentWorkbench } from './ResearchWorkbench';
 import { ArrowDown,ArrowDownToLine,ArrowLeft,ArrowUp,BookOpen,CheckCircle2,FilePlus2,FileText,Plus,RotateCcw,ShieldCheck,Trash2,Upload } from 'lucide-react';
 import {
-  PAPER_STORAGE_KEY, PAPER_RECOVERY_KEY, PAPER_MODES, REFERENCE_TYPES, MAX_SECTIONS, MAX_REFERENCES,
+  PAPER_STORAGE_KEY, PAPER_RECOVERY_KEY, PAPER_MODES, REFERENCE_TYPES, MAX_SECTIONS, MAX_REFERENCES, MAX_SECTION_TEXT,
   createPaper,checkPaper,sectionsCustomized,applyReferencePatch,
   countPaperCharacters,paperToMarkdown,exportPaperBackup,parsePaperBackup,
   type PaperMode,type PaperProject,type PaperReference,type PaperSection
@@ -34,8 +35,8 @@ function newId(prefix:string):string {
   if(typeof crypto!=='undefined' && 'randomUUID' in crypto) return prefix+crypto.randomUUID();
   return prefix+Date.now()+'-'+Math.random().toString(36).slice(2);
 }
-type Tab='design'|'write'|'sources';
-const NAV:[Tab,string][]=[['design','研究设计'],['write','章节写作'],['sources','参考资料']];
+type Tab='design'|'research'|'logic'|'write'|'sources';
+const NAV:[Tab,string][]=[['design','研究设计'],['research','文献检索'],['logic','观点与逻辑'],['write','章节写作'],['sources','参考资料']];
 export function PaperWorkspace() {
   const [draft]=useState(readDraft);
   const [paper,setPaper]=useState<PaperProject>(draft.paper);
@@ -56,7 +57,7 @@ export function PaperWorkspace() {
   }
   function changeMode(next:PaperMode) {
     if(next===paper.mode) return;
-    if(sectionsCustomized(paper)&&!window.confirm('更换论文结构会用新模板替换全部章节，包括已修改的章节标题、顺序和正文。请先导出备份。确定继续吗？')) return;
+    if(sectionsCustomized(paper)&&!window.confirm('更换论文结构会用新模板替换全部章节，包括已修改的章节标题、顺序、正文和写作笔记。请先导出备份。确定继续吗？')) return;
     setPaper(old=>({...old,mode:next,sections:createPaper(next).sections}));
     setSectionId('');setMessage('已切换论文结构模板。');
   }
@@ -119,6 +120,12 @@ export function PaperWorkspace() {
       setPaper(imported);setSectionId('');setTab('design');setMessage('论文备份已恢复。');
     }catch(error){setMessage(error instanceof Error?error.message:'备份无法读取。');}
   }
+  function insertGuide(section:PaperSection,guide:string){
+    const notes=section.notes??'';
+    if(notes.length+guide.length+2>MAX_SECTION_TEXT){setMessage('该章节写作笔记超过长度限制，无法附加写作指引。');return;}
+    setPaper(old=>({...old,sections:old.sections.map(s=>s.id===section.id?{...s,notes:(s.notes??'').trimEnd()+((s.notes??'').trim()?'\n\n':'')+guide}:s)}));
+    setSectionId(section.id);setTab('write');setMessage('写作指引已放入该章节的「写作笔记」，不计入正文、不随 Markdown 导出；请自行撰写正文并核实各条参考文献。');
+  }
   function reset(){
     if(!window.confirm('重置会清空论文、章节和参考资料。本操作不可撤销，建议先导出 JSON 备份。确定继续吗？'))return;
     setPaper(createPaper());setSectionId('');setTab('design');setMessage('已经建立一份新的空白论文。');
@@ -161,6 +168,8 @@ export function PaperWorkspace() {
         <button type="button" className="btn primary" onClick={()=>setTab('write')}>前往章节写作 <ArrowLeft size={15} className="paper-rotated"/></button>
       </aside>
     </div>}
+    {tab==='research'&&<LiteratureSearch paper={paper} setPaper={setPaper} onLogic={()=>setTab('logic')}/>}
+    {tab==='logic'&&<ArgumentWorkbench paper={paper} setPaper={setPaper} onInsertGuide={insertGuide}/>}
     {tab==='write'&&<div className="paper-columns paper-writing">
       <aside className="panel paper-outline">
         <div className="panel-head"><div><span className="eyebrow">02 / OUTLINE</span><h2>论文提纲</h2></div><button type="button" className="btn outline" onClick={addSection} disabled={paper.sections.length>=MAX_SECTIONS} title={paper.sections.length>=MAX_SECTIONS?`最多 ${MAX_SECTIONS} 个章节`:undefined}><Plus size={15}/> 章节</button></div>
@@ -174,12 +183,13 @@ export function PaperWorkspace() {
         <div className="panel-head"><div><span className="eyebrow">SECTION EDITOR</span><h2>撰写章节</h2></div><FileText size={20}/></div>
         <div className="paper-field"><label htmlFor="paper-heading">章节标题</label><input id="paper-heading" maxLength={300} value={active.heading} onChange={e=>updateSection(active.id,{heading:e.target.value})}/></div>
         <div className="paper-field"><label htmlFor="paper-body">正文</label><textarea id="paper-body" className="paper-body" maxLength={150000} spellCheck value={active.body} onChange={e=>updateSection(active.id,{body:e.target.value})} placeholder="在这里展开你自己的法律论证。引入法律条文、学术观点或案例时，请注明可核验的出处。"/></div>
+        <div className="paper-field paper-notes"><label htmlFor="paper-notes">写作笔记（不计入正文字数，不导出到 Markdown）</label><textarea id="paper-notes" maxLength={MAX_SECTION_TEXT} rows={6} value={active.notes??''} onChange={e=>updateSection(active.id,{notes:e.target.value})} placeholder="提纲、待查资料或从「观点与逻辑」附加的写作指引会放在这里。"/></div>
         <div className="paper-editor-footer"><span>章节正文 {active.body.replace(/\s/g,'').length.toLocaleString('zh-CN')} 字符</span><span>自动保存到此浏览器（建议定期备份）</span></div>
       </>}</section>
     </div>}
     {tab==='sources'&&<div className="panel paper-panel">
       <div className="panel-head"><div><span className="eyebrow">03 / RESEARCH SOURCES</span><h2>参考资料与法律依据</h2></div><button type="button" className="btn primary" onClick={addReference} disabled={paper.references.length>=MAX_REFERENCES} title={paper.references.length>=MAX_REFERENCES?`最多 ${MAX_REFERENCES} 条来源`:undefined}><FilePlus2 size={16}/> 添加来源</button></div>
-      <p className="paper-help">由你录入真实文献信息、法条或裁判文书，记录 DOI / 正式链接 / 法条位置 / 案号。只有本人完成核验后才勾选「已核验」，本站不自动访问数据库或声称核验成功。</p>
+      <p className="paper-help">你可以从「文献检索」添加 Crossref DOI 题录，也可在这里手动登记中文文献、法律规范或裁判文书。元数据检索不等于读过全文；只有本人完成核验后才勾选「已核验」。</p>
       {paper.references.length===0?<div className="paper-empty"><BookOpen size={30}/><strong>尚未录入参考资料</strong><p>从你实际阅读过的文献、现行法律及裁判文书开始，避免虚构或未经核实的引用。</p><button className="btn outline" onClick={addReference}>添加第一条来源</button></div>:
         <div className="paper-references">{paper.references.map((ref,i)=><section className="paper-ref" key={ref.id}>
           <div className="paper-ref-top"><span className="eyebrow">SOURCE {String(i+1).padStart(2,'0')}</span><div><span className={ref.verified?'paper-state verified':'paper-state'}>{ref.verified?'作者已核验':'待核验'}</span><button type="button" className="paper-icon-button" aria-label={'删除第'+(i+1)+'条来源'} onClick={()=>deleteReference(ref.id)}><Trash2 size={16}/></button></div></div>
@@ -193,7 +203,7 @@ export function PaperWorkspace() {
         </section>)}</div>}
     </div>}
     <div className="paper-bottom">
-      <div className="paper-bottom-note"><ShieldCheck size={17}/><p>本版本不生成论文正文、不自动查找或验证文献。所有研究内容仅保存在当前设备的浏览器内，不会上传到服务器；请定期下载 JSON 备份。引用格式、AI 使用规范与学术诚信要求以所在学校规定为准。</p></div>
+      <div className="paper-bottom-note"><ShieldCheck size={17}/><p>本版本可直接向 Crossref 发送你输入的文献检索关键词以读取公开 DOI 元数据；论文正文、研究笔记和参考文献库只保存在当前浏览器，不上传 LawLab 服务器。观点整理和写作指引基于你手动录入的材料，不是自动阅读全文或 AI 论文生成。请定期下载 JSON 备份，并遵守学校学术诚信与引证规范。</p></div>
       <button type="button" className="btn subtle" onClick={reset}><RotateCcw size={15}/> 新建空白论文</button>
     </div>
   </div>;
