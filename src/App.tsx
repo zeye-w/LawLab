@@ -13,15 +13,15 @@ import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 type ModuleId = 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
 type ToolId = Exclude<ModuleId, 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit'>;
 type ModuleIcon = typeof Landmark;
-const MODULES: { id: ToolId; number: string; label: string; subtitle: string; description: string; icon: ModuleIcon; color: string }[] = [
-  { id: 'flashcards', number: '01', label: '记忆卡片', subtitle: 'ACTIVE RECALL', description: '主动回忆、翻面核对、记录已掌握和待复习的知识。', icon: BrainCircuit, color: 'blue' },
-  { id: 'knowledge', number: '02', label: '知识图谱', subtitle: 'KNOWLEDGE GRAPH', description: '通过互动概念地图连接法律规范、事实和证据。', icon: Layers3, color: 'green' },
-  { id: 'court', number: '01', label: '模拟法庭', subtitle: 'MOOT COURT', description: '扮演诉讼代理人，体验陈述、举证、质证与总结。', icon: Landmark, color: 'slate' },
-  { id: 'reasoning', number: '02', label: '法律推理', subtitle: 'LEGAL REASONING', description: '沿着请求权基础与构成要件，梳理法律问题。', icon: GitBranch, color: 'blue' },
-  { id: 'evidence', number: '03', label: '证据链实验室', subtitle: 'EVIDENCE LAB', description: '关联事实与证据，识别相互支持和证明缺口。', icon: Network, color: 'green' },
-  { id: 'quiz', number: '04', label: '法学闯关', subtitle: 'LEGAL QUIZ', description: '完成原创情境题，获得即时反馈和知识回顾。', icon: GraduationCap, color: 'lavender' },
-  { id: 'timeline', number: '05', label: '案件时间线', subtitle: 'CASE TIMELINE', description: '编辑事实与程序节点，查看证据并导出时间线。', icon: CalendarDays, color: 'sand' },
-  { id: 'contracts', number: '06', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '用可解释的规则筛查条款风险，学习改写合同。', icon: FileSearch, color: 'rose' }
+const MODULES: { id: ToolId; label: string; subtitle: string; description: string; icon: ModuleIcon; color: string }[] = [
+  { id: 'flashcards', label: '记忆卡片', subtitle: 'ACTIVE RECALL', description: '主动回忆、翻面核对、记录已掌握和待复习的知识。', icon: BrainCircuit, color: 'blue' },
+  { id: 'knowledge', label: '知识图谱', subtitle: 'KNOWLEDGE GRAPH', description: '通过互动概念地图连接法律规范、事实和证据。', icon: Layers3, color: 'green' },
+  { id: 'court', label: '模拟法庭', subtitle: 'MOOT COURT', description: '扮演诉讼代理人，体验陈述、举证、质证与总结。', icon: Landmark, color: 'slate' },
+  { id: 'reasoning', label: '法律推理', subtitle: 'LEGAL REASONING', description: '沿着请求权基础与构成要件，梳理法律问题。', icon: GitBranch, color: 'blue' },
+  { id: 'evidence', label: '证据链实验室', subtitle: 'EVIDENCE LAB', description: '关联事实与证据，识别相互支持和证明缺口。', icon: Network, color: 'green' },
+  { id: 'quiz', label: '法学闯关', subtitle: 'LEGAL QUIZ', description: '完成原创情境题，获得即时反馈和知识回顾。', icon: GraduationCap, color: 'lavender' },
+  { id: 'timeline', label: '案件时间线', subtitle: 'CASE TIMELINE', description: '编辑事实与程序节点，查看证据并导出时间线。', icon: CalendarDays, color: 'sand' },
+  { id: 'contracts', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '用可解释的规则筛查条款风险，学习改写合同。', icon: FileSearch, color: 'rose' }
 ];
 const DEEP_LINKS = new Set<ModuleId>(['home','learn','practice','litigation','nonlit','flashcards','knowledge','court','reasoning','evidence','quiz','timeline','contracts']);
 function getHashPage(): ModuleId {
@@ -52,11 +52,11 @@ function Pill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neu
 }
 function Placeholder({ children }: { children: ReactNode }) { return <div className="placeholder">{children}</div>; }
 function ModuleTiles({ ids, navigate }: { ids: ToolId[]; navigate: (id: ModuleId) => void }) {
-  return <section className="module-grid" aria-label="可使用的功能模块">{ids.map(id => {
+  return <section className="module-grid" aria-label="可使用的功能模块">{ids.map((id, i) => {
     const m = MODULES.find(item=>item.id===id)!;
     const Icon=m.icon;
     return <button key={id} className={`module-card module-${m.color}`} onClick={()=>navigate(id)}>
-      <span className="module-card-top"><span className="module-symbol"><Icon size={23} strokeWidth={1.65}/></span><span className="module-number">{m.number}</span></span>
+      <span className="module-card-top"><span className="module-symbol"><Icon size={23} strokeWidth={1.65}/></span><span className="module-number">{String(i+1).padStart(2,'0')}</span></span>
       <span className="module-en">{m.subtitle}</span><span className="module-title">{m.label}</span><span className="module-description">{m.description}</span>
       <span className="module-footer">进入模块 <ArrowRight size={16}/></span>
     </button>;

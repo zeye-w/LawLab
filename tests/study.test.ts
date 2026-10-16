@@ -24,6 +24,15 @@ test('knowledge graph has unique nodes and no dangling links', () => {
   }
 });
 
+test('knowledge graph links are bidirectional', () => {
+  for (const node of KNOWLEDGE_NODES) {
+    for (const id of node.related) {
+      const other = KNOWLEDGE_NODES.find(n=>n.id===id)!;
+      assert.ok(other.related.includes(node.id),`${id} should link back to ${node.id}`);
+    }
+  }
+});
+
 test('students can use each teaching topic and topic content is non-empty', () => {
   for (const topic of ['民法','证据法','法律方法']) {
     assert.ok(STUDY_CARDS.some(card=>card.topic===topic));

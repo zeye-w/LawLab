@@ -48,7 +48,7 @@ export function Flashcards() {
     </div>
     {current ? <section className="study-workspace">
       <div className="flash-top"><span className="eyebrow">{current.topic} / {String(Math.min(index,list.length-1)+1).padStart(2,'0')} / {list.length}</span><span className="muted tiny">{history[current.id]==='known'?'已掌握':history[current.id]==='again'?'待复习':'尚未标记'}</span></div>
-      <button className={`flash-card ${revealed?'flash-revealed':''}`} onClick={()=>setRevealed(v=>!v)} aria-label={revealed?'查看问题':'翻转卡片查看答案'} aria-pressed={revealed}>
+      <button className={`flash-card ${revealed?'flash-revealed':''}`} onClick={()=>setRevealed(v=>!v)} aria-pressed={revealed}>
         <span className="flash-overline">{revealed?'ANSWER / 答案':'QUESTION / 想一想'}</span>
         <strong>{revealed?current.back:current.front}</strong>
         <span className="flash-hint">{revealed?current.context:'点击卡片查看答案'}</span>
