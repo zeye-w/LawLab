@@ -133,7 +133,7 @@ function Quiz() {
   const [index,setIndex] = useState(0);
   const [responses,setResponses] = useBrowserState<Array<number|null>>('lawlab.quiz.v1',[null,null,null,null,null]);
   const q = QUIZ[index], response=responses[index];
-  const score = responses.reduce((n,choice,i)=>n+(choice===QUIZ[i].answer?1:0),0);
+  const score = responses.reduce<number>((n,choice,i)=>n+(choice===QUIZ[i].answer?1:0),0);
   const done = responses.every(answer=>answer!==null);
   function choose(v:number){if(response===null)setResponses(old=>old.map((x,i)=>i===index?v:x));}
   return <>
