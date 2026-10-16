@@ -1,5 +1,5 @@
 import {
-  MODEL_ID, MAX_REQUEST_BYTES, RequestError, buildAnalysisPrompt, readModelPayload, validateAnalysisRequest, verifyModelClaims
+  MODEL_ID, MAX_REQUEST_BYTES, RequestError, buildAnalysisPrompt, readModelPayload, validateAnalysisRequest, verifyModelClaimsDetailed
 } from './grounding.ts';
 
 interface Env {
@@ -96,9 +96,9 @@ async function analyze(request:Request,env:Env):Promise<Response>{
     });
     const payload=readModelPayload(output);
     if(!payload)return json({error:'模型返回的内容无法解析，本次没有可用结果，请稍后重试。'},502);
-    const claims=verifyModelClaims(payload,input.passages);
-    return json({claims,checkedPages:input.passages.map(p=>p.page),model:MODEL_ID,
-      notice:'仅核对引文是否存在于所提交的页文本，不代表已经验证模型概括准确、来源真实性或论文观点。'});
+    const {claims,diagnostics}=verifyModelClaimsDetailed(payload,input.passages);
+    return json({claims,diagnostics,checkedPages:input.passages.map(p=>p.page),model:MODEL_ID,
+      notice:'仅核对引用字符是否出现在所提交的相应页面文本中（可忽略 PDF 版式空白），不代表已确认观点概括准确、来源真实性或论文观点。'});
   }catch(e){
     // Upstream messages can carry internal details; log only the error type, never request text.
     console.error('workers-ai run failed:',e instanceof Error?e.name:typeof e);
