@@ -11,6 +11,15 @@
     { "name": "AI_IP_LIMITER", "namespace_id": "41001", "simple": { "limit": 4, "period": 60 } },
     { "name": "AI_GLOBAL_LIMITER", "namespace_id": "41002", "simple": { "limit": 20, "period": 60 } }
   ],
+  // Preview bindings are explicitly isolated from production; don't copy production namespace IDs.
+  // AI calls in a configured Preview still consume this Cloudflare account's Neurons quota.
+  "previews": {
+    "ai": { "binding": "AI" },
+    "ratelimits": [
+      { "name": "AI_IP_LIMITER", "namespace_id": "51001", "simple": { "limit": 4, "period": 60 } },
+      { "name": "AI_GLOBAL_LIMITER", "namespace_id": "51002", "simple": { "limit": 20, "period": 60 } }
+    ]
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
