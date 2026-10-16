@@ -1,6 +1,6 @@
 # LawLab — 交互式法律学习与实务实验室
 
-> LawLab V0.4 is a browser-only educational and workflow prototype, **not a legal advice system**. All example cases are fictional.
+> LawLab V0.4.1 is an educational and workflow prototype with optional cloud AI in the paper module, **not a legal advice system**. All example cases are fictional.
 
 LawLab 采用双入口：
 
@@ -26,7 +26,7 @@ LawLab 采用双入口：
 | `#evidence` | 证据链 | 证据筛选、证明目的和局限性分析，不计算胜诉概率 |
 | `#timeline` | 案件时间线 | 增删自定义节点、事实/程序筛选、CSV 导出 |
 | `#nonlit` | 非诉工作台 | 当前提供合同审查入口；尽调和合规仅为后续规划 |
-| `#contracts` | 合同审查 | 浏览器本地正则规则分析，支持粘贴和 TXT 文件（不支持 PDF/DOCX） |
+| `#contracts` | 合同审查 | 浏览器内直接导入 TXT、Word 97–2003 `.doc`、`.docx` 与文字型 PDF，提取全文交由本地规则引擎筛查；不上传原始合同 |
 
 旧版 `#court`、`#timeline` 等深链接仍可使用。学生版与专业版**复用**相同的推理、演练和数据处理组件。
 
@@ -59,6 +59,15 @@ Cloudflare Workers 上现有的线上网站由其绑定的 Git 分支构建。�
 
 **隐私提示：**检索词会发送到 Crossref。论文正文、文献整理笔记不发送到 Crossref 或 LawLab 服务器。此版本没有自动全文获取、中文法律数据库授权接口或付费大模型能力。
 
+## 合同审查文件导入（V0.4.1）
+
+非诉业务中的 `#contracts` 现在可导入 `.txt`、Word 97–2003 二进制 `.doc`、现代 `.docx` 和**带可选择文字层的 PDF**。解析发生在浏览器，**不会向 Cloudflare、LawLab 服务端或 Qwen 提交合同内容**，与论文模块的可选云端 AI 独立。导入成功后，文本进入原有 `reviewContract` 规则引擎，用户可先检查和修改文本，然后主动点击「开始审查」。
+
+- 支持最大 **8 MB** 的文件、提取正文最大 **120,000 字符**、PDF 最多 **80 页**。超出时明确报错，不自动截断后误提示合同安全。
+- PDF 利用现有 PDF.js；DOCX 使用按需加载的 [Mammoth](https://github.com/mwilliamson/mammoth.js) 只提取正文纯文本；Word 97–2003 DOC 使用按需加载的 [JSDoc](https://github.com/Alpaq92/JSDoc) 0BSD 解析器（原始代码与许可参见 `src/lib/vendor`）。这些解析器不做图文排版保真，也不执行文件宏。
+- 扫描 PDF 需要先 OCR；密码保护、损坏、早期不兼容 DOC 和含大量图片/批注/修订的合同可能无法完整提取。**合同中的表格、扫描附录、脚注、签章与修订记录需人工核对原件**。
+- 上传失败时保留原编辑文本并显示错误，不会运行部分解析文本的合同审查。导入后会提示来源文件和文字长度；原始合同文件不持久存储，不提供 AI 自动法律审查。
+
 ## V0.4 Cloudflare AI 的配置
 
 新增的 `wrangler.jsonc` 包含 `AI` Binding、`worker/index.ts` 服务端和 `dist` 静态资源映射。**只有静态文件构建不会启用 AI API。** 需要管理员设置至少 24 字符的 `LAWLAB_AI_ACCESS_TOKEN` Secret，并部署完整 Worker（含两个限流 Binding：每 IP 每分钟 4 次、全站每分钟 20 次）；用户在 `#paper` →「AI 文献分析」中输入访问码。完整步骤、安全限制及 CI 验收见 [docs/CLOUDFLARE_AI_V04.md](docs/CLOUDFLARE_AI_V04.md)。此模块只处理前 12 页、合计不超过 16,000 字符，不声称完成整篇论文的全文分析；AI 观点卡须人工复核。
@@ -67,7 +76,7 @@ Cloudflare Workers 上现有的线上网站由其绑定的 Git 分支构建。�
 
 - V0.4 增加**可选 Cloudflare Workers AI 模型推理**（使用访问码，依赖 AI Binding 和站点管理员 Secret），只在用户主动点击 AI 分析时，将 PDF 在浏览器提取的有限页文字发送到 Cloudflare 模型服务。PDF 文件本身不上传；未启用 AI 的站点仍保留纯本地编辑器和 Crossref 检索。不能获取付费论文全文、自动核实法律效力或保证模型观点正确。
 - 记忆卡片标记（`lawlab:v02:flashcard-progress`）、论文项目（`lawlab:student-paper:v1`）、原有答题进度和自定义时间线写入本机浏览器存储；共享设备可能看到这些数据。论文内容及手动整理的来源观点随项目保存，须定期导出 JSON 备份；旧版 JSON 备份兼容。
-- 合同文本仅在当前页面的运行时内存中分析，无后台上传；仅支持本地规则提示，不能证明合同安全。
+- 合同文本仅在当前页面的运行时内存中分析，无后台上传；支持 TXT / DOC / DOCX / PDF 的浏览器解析，含 8 MB 文件大小、12 万字符及 80 页 PDF 的完整性限制；仅支持本地规则提示，不能证明合同安全。
 - 所有案例、学习材料和概念图为演示，法律规则与个案结论应核对适用地区及现行法律。Crossref DOI 题录只是元数据，用户必须自行核查原文、适用法域及引文；观点分类、对照、缺口提示与写作提纲都基于使用者手动填写的研究笔记，不是 AI 读取全文后的学术结论。
 - 请勿使用真实客户文件、隐私或商业机密测试；专业版上线处理真实材料之前，需完善授权、访问控制、加密、日志审计、数据删除、律师复核等机制。
 - 浏览器存储的学习和案件资料不会自动迁移到其他设备。
@@ -90,11 +99,14 @@ src/
   data/cases.ts             虚构案例数据
   lib/timeline.ts           事件排序、CSV 导出
   lib/contractRules.ts      本地规则引擎
+  lib/contractImport.ts     TXT、DOC、DOCX、PDF 本地正文解析
+  lib/vendor/docToText.js  0BSD 许可的 Word 97–2003 解析器（按需加载）
   lib/paper.ts              论文结构、导出与备份验证
   lib/research.ts           Crossref 元数据规范化及论证指引逻辑
   styles.css                响应式视觉样式
 tests/
   contractRules.test.ts     现有合同与时间线测试
+  contractImport.test.ts    合同格式校验、中文文本、旧式 DOC 与 DOCX 安全检查
   study.test.ts             学习内容与图谱完整性测试
   paper.test.ts             论文工作台的结构与导出测试
   research.test.ts          文献元数据、观点对照及兼容性测试
