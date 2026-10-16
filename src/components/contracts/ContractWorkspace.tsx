@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type ReactNode } from 'react';
 import { CheckCircle2, FileSearch, FileText, Search, ShieldCheck, Upload } from 'lucide-react';
 import { importContractFile } from '../../lib/contractImport';
-import { SAMPLE_CONTRACT, type ContractFinding } from '../../lib/contractRules';
+import type { ContractFinding } from '../../lib/contractRules';
 import {
   currentReviewFindings, initialContractWorkspace, selectReviewFinding,
   withEditedContract, withImportedContract, withReviewedContract, withSampleContract
