@@ -1,7 +1,8 @@
+import type { ResearchNote } from './research';
 export type PaperMode = '规范解释研究' | '案例评析' | '比较法研究';
 export type ReferenceType = '期刊论文' | '专著' | '法律规范' | '裁判文书' | '其他';
 export type PaperSection = { id: string; heading: string; body: string };
-export type PaperReference = { id: string; type: ReferenceType; citation: string; locator: string; note: string; verified: boolean };
+export type PaperReference = { id: string; type: ReferenceType; citation: string; locator: string; note: string; verified: boolean; research?: ResearchNote };
 export type PaperProject = {
   title: string;
   question: string;
@@ -79,6 +80,7 @@ export function paperToMarkdown(paper: PaperProject): string {
       (ref.locator.trim()?' — '+ref.locator.trim():'')+
       (ref.verified?'（作者已标记核验）':'（待核验）'),'');
     if(ref.note.trim()) lines.push('> 研究笔记：'+ref.note.trim().replace(/\r?\n/g,' '),'');
+    if(ref.research?.claim.trim()) lines.push('> 作者整理的观点：'+ref.research.claim.trim().replace(/\r?\n/g,' '),'');
   }
   lines.push('---','本文件是作者自主编辑的工作草稿。请在正式提交前逐条核实法律规范的现行效力、判决的来源与引文，按院校要求调整引用格式。','');
   return lines.join('\n');
@@ -119,11 +121,18 @@ export function parsePaperBackup(text:string):PaperProject {
     if(!record(item)||!stringWithin(item.id,100)||!item.id||
        !REFERENCE_TYPES.includes(item.type as ReferenceType)||
        !stringWithin(item.citation,2000)||!stringWithin(item.locator,2000)||
-       !stringWithin(item.note,6000)||typeof item.verified!=='boolean') {
+       !stringWithin(item.note,6000)||typeof item.verified!=='boolean'||
+       (item.research!==undefined && (!record(item.research)||
+          !['support','challenge','background','unclassified'].includes(item.research.stance as string)||
+          !stringWithin(item.research.claim,4000)||!stringWithin(item.research.evidence,4000)||
+          !stringWithin(item.research.limitation,4000)))) {
       throw new Error('参考资料数据不符合要求。');
     }
     references.push({id:item.id,type:item.type as ReferenceType,citation:item.citation,
-      locator:item.locator,note:item.note,verified:item.verified});
+      locator:item.locator,note:item.note,verified:item.verified,
+      ...(item.research!==undefined?{research:{stance:item.research.stance as ResearchNote['stance'],
+        claim:item.research.claim as string,evidence:item.research.evidence as string,
+        limitation:item.research.limitation as string}}:{})});
   }
   if(new Set(sections.map(s=>s.id)).size!==sections.length ||
      new Set(references.map(r=>r.id)).size!==references.length) {
