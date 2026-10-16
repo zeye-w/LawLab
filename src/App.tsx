@@ -101,7 +101,7 @@ function Reasoning() {
   const answer = selected[step];
   const stopped = step === 0 && answer !== null && answer !== 0;
   const canNext = step<3 && answer !== null && !stopped;
-  function choose(v:number) { setSelected(old=>old.map((x,i)=>i===step?v:x)); }
+  function choose(v:number) { setSelected(old=>old.map((x,i)=>i===step?v:i>step?null:x)); }
   function restart(){ setSelected([null,null,null,null]);setStep(0); }
   return <>
     <PageHeading eyebrow="MODULE 02 / LEGAL REASONING" title="法律推理决策树" description="先明确请求权基础，再检查事实、要件、反证与抗辩。"/>
@@ -111,7 +111,7 @@ function Reasoning() {
       {stopped&&<div className="feedback caution"><strong>当前分支需要进一步确认</strong><p>合同成立是合同请求权分析的重要前提。当前答案不足以沿原路径继续；可以补充事实或改从其他请求权基础分析。这不是案件败诉结论。</p></div>}
       {step===3&&answer!==null&&<div className="feedback positive"><strong>本次分析路径已完成</strong><p>已记录四个判断节点。下一步应逐项对应具体法律依据、证据与相反解释，而不能仅凭勾选得出胜负判断。</p></div>}
       <div className="panel-actions"><button className="btn subtle" disabled={step===0} onClick={()=>setStep(v=>v-1)}><ArrowLeft size={16}/> 返回</button><div className="action-side"><button className="btn ghost" onClick={restart}><RotateCcw size={15}/> 重置</button><button className="btn primary" disabled={!canNext} onClick={()=>setStep(v=>v+1)}>继续审查 <ArrowRight size={15}/></button></div></div>
-    </div><aside className="panel compact"><div className="eyebrow">REASONING PATH</div><h3>当前推理路径</h3><div className="reason-tree">{REASON_QUESTIONS.map((q,i)=><button key={i} className={`tree-item ${step===i?'tree-current':''}`} onClick={()=>setStep(i)}><span className="tree-dot">{selected[i]!==null?<Check size={13}/>:i+1}</span><span><strong>{q.title}</strong><small>{selected[i]===null?'尚未判断':q.choices[selected[i]][0]}</small></span></button>)}</div>
+    </div><aside className="panel compact"><div className="eyebrow">REASONING PATH</div><h3>当前推理路径</h3><div className="reason-tree">{REASON_QUESTIONS.map((q,i)=><button key={i} className={`tree-item ${step===i?'tree-current':''}`} disabled={i>0 && (selected.slice(0,i).some(x=>x===null) || selected[0]!==0)} onClick={()=>setStep(i)}><span className="tree-dot">{selected[i]!==null?<Check size={13}/>:i+1}</span><span><strong>{q.title}</strong><small>{selected[i]===null?'尚未判断':q.choices[selected[i]][0]}</small></span></button>)}</div>
       <Notice>这是一棵教学化的事实审查树，不是穷尽性法条检索，也不提供自动裁判结论。</Notice>
     </aside></div>
   </>;
