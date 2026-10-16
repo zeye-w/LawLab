@@ -76,7 +76,7 @@ export function flattenPdfTextPages(parts:readonly string[]):{text:string;pageSp
   let cursor=0;
   for(let i=0;i<parts.length;i++){
     if(!parts[i])continue;
-    if(chunks.length){chunks.push('\\n\\n');cursor+=2;}
+    if(chunks.length){chunks.push('\n\n');cursor+=2;}
     const start=cursor;chunks.push(parts[i]);cursor+=parts[i].length;
     pageSpans.push({page:i+1,start,end:cursor});
   }
