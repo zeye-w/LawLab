@@ -1,13 +1,12 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronRight, CircleHelp, FileSearch,
   FileText, GitBranch, GraduationCap, Landmark, LayoutGrid, Menu, Network,
-  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, Upload, X, BrainCircuit, BriefcaseBusiness, Layers3, NotebookPen
+  Plus, RotateCcw, Scale, Search, ShieldCheck, Trash2, X, BrainCircuit, BriefcaseBusiness, Layers3, NotebookPen
 } from 'lucide-react';
 import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
-import { reviewContract, SAMPLE_CONTRACT, type ContractFinding } from './lib/contractRules';
-import { importContractFile, type ContractImportResult } from './lib/contractImport';
+import { ContractWorkspace } from './components/contracts/ContractWorkspace';
 import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 import { PaperWorkspace } from './components/PaperWorkspace';
@@ -220,40 +219,6 @@ function Timeline() {
     <Notice icon={ShieldCheck}>事件保存在当前浏览器的 localStorage。导出的 CSV 可能包含案件隐私信息，分享前请脱敏；演示节点不是实际法院记录。</Notice>
   </>;
 }
-function ContractReview() {
-  const [text,setText] = useState(SAMPLE_CONTRACT);
-  const [findings,setFindings] = useState<ContractFinding[] | null>(null);
-  const [currentId,setCurrentId] = useState<string | null>(null);
-  const [uploadError,setUploadError] = useState('');
-  const [importing,setImporting] = useState(false);
-  const [imported,setImported] = useState<ContractImportResult|null>(null);
-  const current = findings?.find(f=>f.id===currentId)??findings?.[0];
-  const high=findings?.filter(f=>f.severity==='high').length??0;
-  function analyze(){ const result=reviewContract(text);setFindings(result);setCurrentId(result[0]?.id??null); }
-  function changeText(value:string){setText(value);setFindings(null);setCurrentId(null);setUploadError('');setImported(null);}
-  async function upload(event:ChangeEvent<HTMLInputElement>) {
-    const file=event.target.files?.[0];event.target.value='';
-    if(!file||importing)return;
-    setUploadError('');setImporting(true);
-    try {
-      const result=await importContractFile(file);
-      changeText(result.text);setImported(result);
-    } catch(error) {
-      setUploadError(error instanceof Error?error.message:'文件读取失败，请更换文件。');
-    } finally {setImporting(false);}
-  }
-  return <>
-    <PageHeading eyebrow="MODULE 06 / CONTRACT REVIEW" title="合同审查工作台" description="导入 TXT、DOC、DOCX 或文字型 PDF，以本地预设规则筛查合同条款。平台只提取正文文字，不读取扫描图片。" right={<Pill tone="amber">规则演示 · 非 AI</Pill>}/>
-    <div className="layout-split contracts-layout"><div className="panel"><div className="panel-head"><h2>合同文本</h2><span className="muted tiny">仅在浏览器内处理</span></div><textarea className="contract-text" aria-label="需要审查的合同文本" spellCheck={false} value={text} disabled={importing} onChange={e=>changeText(e.target.value)} placeholder="在这里粘贴脱敏后的合同文本…"/>
-      <div className="contract-actions"><label className="btn outline file-upload"><Upload size={16}/> {importing?'正在解析文件…':'导入 TXT / DOC / DOCX / PDF'}<input type="file" accept=".txt,.doc,.docx,.pdf,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={importing} onChange={upload}/></label><button className="btn subtle" disabled={importing} onClick={()=>changeText(SAMPLE_CONTRACT)}>载入示例</button><button className="btn primary" disabled={!text.trim()||importing} onClick={analyze}><Search size={16}/> 开始审查</button></div>
-      {imported&&<div className="notice" role="status"><FileText size={17}/><div><strong>已从 {imported.name} 提取 {imported.text.length.toLocaleString('zh-CN')} 字符</strong>{imported.pages?(' · PDF 共 '+imported.pages+' 页'):''}<p>文本已填入上方编辑区，请核对完整性后再点击「开始审查」。</p>{imported.warnings.map((warning,i)=><p key={i}>{warning}</p>)}</div></div>}
-      {uploadError&&<p role="alert" className="input-error">{uploadError}</p>}<p className="muted tiny">支持不超过 8 MB 的文件，文字提取和规则筛查均在浏览器本地完成，合同不会上传到服务器或 AI 模型。扫描 PDF 需先 OCR；加密文件和部分旧式 DOC 无法直接解析。请仅使用虚构、脱敏或已获授权的合同。</p></div>
-      <div className="panel"><div className="panel-head"><div><div className="eyebrow">REVIEW FINDINGS</div><h2>风险提示</h2></div>{findings&&<Pill tone={high?'red':'amber'}>{findings.length} 项待核查</Pill>}</div>
-        {findings===null?<div className="empty-review"><FileSearch size={40} strokeWidth={1.3}/><h3>从一份合同开始</h3><p>粘贴合同、导入 TXT / DOC / DOCX / PDF，或使用示例合同，点击「开始审查」查看规则匹配结果。</p></div>:findings.length===0?<div className="empty-review"><CheckCircle2 size={36}/><h3>未命中当前预设规则</h3><p>这并不代表合同无风险。规则覆盖范围有限，需要逐条人工审查。</p></div>:<><div className="findings-list">{findings.map(f=><button key={f.id} className={`finding ${current?.id===f.id?'finding-active':''}`} onClick={()=>setCurrentId(f.id)}><span className={`risk-line risk-${f.severity}`}/><span className="grow"><strong>{f.title}</strong><small>{f.quote?`“${f.quote.slice(0,44)}${f.quote.length>44?'…':''}”`:'文本未检测到明确约定'}</small></span><Pill tone={f.severity==='high'?'red':'amber'}>{f.severity==='high'?'高关注':'需关注'}</Pill></button>)}</div>
-        {current&&<div className="finding-detail"><div className="eyebrow">SELECTED FINDING</div><h3>{current.title}</h3><p><strong>为什么需要关注</strong><br/>{current.reason}</p><p><strong>审查与修改方向</strong><br/>{current.suggestion}</p>{current.quote&&<div className="quoted">匹配文本：{current.quote}</div>}</div>}</>}
-      </div></div><Notice icon={ShieldCheck}>当前版本是透明的正则规则筛查，不是实时 AI，也不能替代律师审核。未检出风险不等于合法、有效或公平。</Notice>
-  </>;
-}
 export default function App(){
   const [page,setPage] = useState<ModuleId>(getHashPage);
   const [menuOpen,setMenuOpen] = useState(false);
@@ -286,7 +251,7 @@ export default function App(){
     <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2.1 · LOCAL DEMONSTRATION</span></div></aside>
     {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地保存 · 文献检索联网</span></div></header>
-      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractReview/>}</main>
+      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractWorkspace/>}</main>
       <footer className="footer"><span>LAWLAB · LEARN THE LAW. PRACTICE THE LAW.</span><span>教学与流程演示 · 不构成法律意见</span></footer>
     </div>
   </div>;
