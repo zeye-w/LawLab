@@ -81,7 +81,7 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
 
       const projected = NODES.map(n => ({ ...n, p:project3D(n,camera,width,height) }))
         .filter(n=>n.p.visible).sort((a,b)=>b.p.depth-a.p.depth);
-      const font = getComputedStyle(stage).fontFamily || 'sans-serif';
+      const font = getComputedStyle(stage!).fontFamily || 'sans-serif';
       for (const n of projected) {
         const {x,y,scale} = n.p, chosen = n.id===selectedRef.current;
         const illuminated = linked.has(n.id) || strict, focused = n.id===active;
