@@ -1,5 +1,5 @@
 /** Legacy node seed curated once, then normalized into the canonical Registry. */
-export type KnowledgeNode = { id: string; title: string; category: StudyTopic | '总览'; summary: string; question: string; related: string[] };
+export type KnowledgeNode = { id: string; title: string; category: '民法' | '证据法' | '法律方法' | '总览'; summary: string; question: string; related: string[] };
 export const SEED_KNOWLEDGE_NODES: KnowledgeNode[] = [
   { id:'relationship', title:'法律关系', category:'总览', summary:'从主体、客体与权利义务出发，识别案件的规范分析起点。', question:'当事人之间究竟是什么法律关系？', related:['claims','contract','facts','rules'] },
   { id:'claims', title:'请求权基础', category:'民法', summary:'依据请求的法律效果寻找规范，逐项审查构成要件及抗辩。', question:'哪项规范可能支持该请求？', related:['relationship','rules','defences','facts','contract','outcome'] },
