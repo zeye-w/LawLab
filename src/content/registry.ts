@@ -1,8 +1,9 @@
-import { KNOWLEDGE_NODES } from '../data/study.ts';
+import { SEED_KNOWLEDGE_NODES } from './seedConcepts.ts';
 import { EVIDENCE } from '../data/cases.ts';
 import { INITIAL_EVENTS } from '../lib/timeline.ts';
-import { EVIDENCE_FACT_LINKS, PROOF_FACTS } from '../lib/relationshipMaps.ts';
-import { CONTENT_SCHEMA_VERSION, type CaseRecord, type LegalContentRegistry, type LegalConceptRecord } from './schema.ts';
+import { EVIDENCE_FACT_LINKS, PROOF_FACTS } from './seedCaseFacts.ts';
+import { CANDIDATE_LEGAL_SOURCES, CONCEPT_SOURCE_CANDIDATES } from './sourceCandidates.ts';
+import { CONTENT_SCHEMA_VERSION, type CaseRecord, type LegalContentRegistry, type LegalConceptRecord, type LegalSource } from './schema.ts';
 
 /** This first seed is fictional teaching data. No official legal source has been verified yet.
  * Preserve existing IDs through explicit legacyId mappings; no new legal claims are added. */
@@ -12,7 +13,7 @@ const evidenceId = (id: string) => CASE_ID + ':evidence:' + id;
 const eventId = (id: string) => CASE_ID + ':event:' + id;
 const conceptId = (id: string) => 'concept:cn:' + id;
 
-const concepts: LegalConceptRecord[] = KNOWLEDGE_NODES.map(node => ({
+const concepts: LegalConceptRecord[] = SEED_KNOWLEDGE_NODES.map(node => ({
   id:conceptId(node.id),
   legacyId:node.id,
   title:node.title,
@@ -21,7 +22,7 @@ const concepts: LegalConceptRecord[] = KNOWLEDGE_NODES.map(node => ({
   explanation:node.summary,
   learningQuestion:node.question,
   relatedConceptIds:node.related.map(conceptId),
-  sourceIds:[],
+  sourceIds:[...(CONCEPT_SOURCE_CANDIDATES[node.id] ?? [])],
   editorial:{status:'pending',origin:'legacy-demo'}
 }));
 
@@ -69,10 +70,10 @@ const caseRecord: CaseRecord = {
 };
 
 /** New content features should read this registry or its selectors, not copy arrays between UIs.
- * Source list intentionally empty to avoid suggesting any unverified statute is current law. */
+ * Candidate sources remain pending and with unknown legal validity; no automatic verification. */
 export const LEGAL_CONTENT_V1: LegalContentRegistry = {
   schemaVersion:CONTENT_SCHEMA_VERSION,
-  sources:[],
+  sources:CANDIDATE_LEGAL_SOURCES,
   concepts,
   cases:[caseRecord]
 };
@@ -92,4 +93,17 @@ export function getCase(id: string, registry: LegalContentRegistry = LEGAL_CONTE
 }
 export function getConcept(id: string, registry: LegalContentRegistry = LEGAL_CONTENT_V1): LegalConceptRecord | undefined {
   return registry.concepts.find(item=>item.id===id||item.legacyId===id);
+}
+
+/** Read-only legal source candidates; status is not silently upgraded by selecting a concept. */
+export function getConceptSources(
+  id: string, registry: LegalContentRegistry = LEGAL_CONTENT_V1
+): LegalSource[] {
+  const concept=getConcept(id,registry);
+  if(!concept) return [];
+  const byId=new Map(registry.sources.map(source=>[source.id,source]));
+  return concept.sourceIds.flatMap(sourceId=>{
+    const source=byId.get(sourceId);
+    return source?[source]:[];
+  });
 }

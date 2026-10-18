@@ -4,7 +4,7 @@
 
 当前 PR 仅交付**内容契约、原演示数据的规范化映射、来源审查门槛与校验测试**。不自动认定法条效力、不新增任何真实裁判案例、不调用 AI 生成法律依据、不迁移用户本地存储、不改动合同解析/庭审/论文 API。数据仍是浏览器打包的静态演示内容。
 
-**重要：** 现阶段 `sources=[]`，所有从旧页面迁移的概念都标为 `editorial.status=pending`。这意味着现有解释尚未被来源校验；不能把空来源误显示为“已核验”。案例明确标为 `nature=fictional`，证据与待证事实的连线是候选关联，绝不是事实已获证明。
+**重要：** P1 已加入 6 个待人工核验的官方文本条文定位（详见 [LEGAL_AUTHORITIES_P1.md](LEGAL_AUTHORITIES_P1.md)）， 所有从旧页面迁移的概念仍标为 `editorial.status=pending`，来源统一为 `validity=unknown`。候选来源不代表法律效力或观点已获人工复核。案例明确标为 `nature=fictional`，证据与待证事实的连线是候选关联，绝不是事实已获证明。
 
 ## 结构
 
@@ -24,7 +24,7 @@
 - 事件：`case:cn:equipment-sale-demo-001:event:f2`。
 - 条文/裁判/论文等来源：之后由编辑分配独立、稳定的来源 ID；**不得用正文标题、自动推断的条款编号或法条名称作为身份标识**。
 
-原始数组保留不动；通过 `legacyConceptView()`、`getConcept()`、`getCase()` 提供过渡读接口。后续页面切换到统一 Registry 时应逐个替换，并保证 2D/3D 共用概念 ID 与关系。
+P1 已将法律概念的原始数组移入 `content/seedConcepts.ts`，原 `data/study.ts` 的 `KNOWLEDGE_NODES` 改为 Registry 兼容读视图；2D/3D 均复用同一份概念数据。记忆卡片仍由 `study.ts` 独立管理，案例模块将于后续分批迁移。
 
 ### 来源与法律效力
 

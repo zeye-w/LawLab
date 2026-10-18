@@ -13,7 +13,7 @@ export type LegalSource = {
   id: string;
   title: string;
   jurisdiction: Jurisdiction;
-  kind: 'statute' | 'regulation' | 'judgment' | 'scholarship' | 'official-guidance';
+  kind: 'statute' | 'regulation' | 'judgment' | 'scholarship' | 'official-guidance' | 'judicial-interpretation';
   issuer: string;
   url: string;
   locator?: string; // article, section, page, or judgment paragraph

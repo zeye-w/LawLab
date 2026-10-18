@@ -15,8 +15,9 @@ test('versioned unified registry validates without claiming a legal source was v
   assert.equal(CONTENT_SCHEMA_VERSION,1);
   assert.strictEqual(assertValidContent(LEGAL_CONTENT_V1),LEGAL_CONTENT_V1);
   assert.deepEqual(validateContent(LEGAL_CONTENT_V1),[]);
-  assert.equal(LEGAL_CONTENT_V1.sources.length,0);
-  assert.ok(LEGAL_CONTENT_V1.concepts.every(n=>n.editorial.status==='pending'&&n.sourceIds.length===0));
+  assert.equal(LEGAL_CONTENT_V1.sources.length,6);
+  assert.ok(LEGAL_CONTENT_V1.sources.every(s=>s.editorial.status==='pending'&&s.validity==='unknown'));
+  assert.ok(LEGAL_CONTENT_V1.concepts.every(n=>n.editorial.status==='pending'));
   assert.ok(LEGAL_CONTENT_V1.cases.every(c=>c.nature==='fictional'&&c.editorial.status==='pending'));
   assert.ok(LEGAL_CONTENT_V1.cases[0].links.every(x=>x.review==='pending'&&x.relation==='candidate-support'));
 });
@@ -65,7 +66,7 @@ test('detects dangling concept, authority, fact, evidence, event and duplicate I
 });
 
 test('rejects unsourced verified legal assertions and unreviewed claims of current legal effect',()=>{
-  const c1=copy();c1.concepts[0].editorial={origin:'editorial',status:'verified',checkedAt:'2026-10-18',checkedBy:'editor'};
+  const c1=copy();c1.concepts.find(n=>n.legacyId==='burden')!.editorial={origin:'editorial',status:'verified',checkedAt:'2026-10-18',checkedBy:'editor'};
   assert.ok(codes(c1).includes('MISSING_AUTHORITY'));
   const c2=copy();c2.sources.push({
     id:'test:unverified-source',title:'虚拟法律依据（测试专用）',
