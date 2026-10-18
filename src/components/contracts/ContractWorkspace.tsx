@@ -75,9 +75,11 @@ export function ContractWorkspace(){
             <strong>{source.name?'已导入 '+source.name:source.origin==='sample'?'已载入虚构示例':'当前编辑文本'}</strong>
             {' · '+source.text.length.toLocaleString('zh-CN')+' 字符'}
             {source.pages!==undefined?' · PDF 共 '+source.pages+' 页':''}
-            <p>来源状态：{integrityLabel(source.integrity)}。{source.integrity==='needs-review'
-              ?'审查只能覆盖当前可见的提取文本，不能代表整份原件已被完整识别。'
-              :'请核对原始文件与编辑区正文是否一致。'}</p>
+            {source.origin==='sample'||source.origin==='pasted'
+              ?<p>来源：示例或手动输入的文本，审查范围就是编辑区的全部内容。</p>
+              :<p>来源状态：{integrityLabel(source.integrity)}。{source.integrity==='needs-review'
+                ?'审查只能覆盖当前可见的提取文本，不能代表整份原件已被完整识别。'
+                :source.integrity==='blocked'?'该来源不能用于规则审查。':'请核对原始文件与编辑区正文是否一致。'}</p>}
             {source.pageSpans&&<p>已建立 {source.pageSpans.length} 个 PDF 物理页的文本范围映射；修改正文后映射会失效。</p>}
             {source.warnings.map((warning,i)=><p key={i}>{warning}</p>)}
           </div>

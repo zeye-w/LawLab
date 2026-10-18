@@ -1,5 +1,7 @@
 /** Browser-only contract text import. Never uploads the original document to LawLab or an AI API. */
 export type ContractFormat = 'txt'|'doc'|'docx'|'pdf';
+/** 'blocked' is reserved by the V0.5 plan for sources that must never be reviewed; the importer
+ * currently throws instead of producing partial text, but the workspace already refuses to review it. */
 export type ContractIntegrity='complete'|'needs-review'|'blocked';
 export type ContractPageSpan={page:number;start:number;end:number};
 export type ContractImportResult = {

@@ -5,6 +5,12 @@ import type { ContractImportResult, ContractFormat, ContractPageSpan, ContractIn
 /** The canonical text is the only source for finding offsets; file bytes remain in memory only while parsing. */
 export type ContractOrigin = 'sample' | 'pasted' | 'uploaded' | 'edited';
 
+// crypto.randomUUID only exists in secure contexts (HTTPS/localhost); a LAN http preview must not crash.
+function newRevisionId():string{
+  if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return crypto.randomUUID();
+  return 'rev-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+}
+
 export interface ContractSource {
   revisionId: string;
   origin: ContractOrigin;
@@ -32,7 +38,7 @@ export function createSource(
   text: string,
   origin: ContractOrigin,
   options: Partial<Omit<ContractSource, 'revisionId' | 'text' | 'origin'>> = {},
-  revisionId: string = crypto.randomUUID()
+  revisionId: string = newRevisionId()
 ): ContractSource {
   return {revisionId,origin,text,integrity:options.integrity??'complete',warnings:[...(options.warnings??[])],
     ...(options.name?{name:options.name}:{}),
@@ -58,7 +64,10 @@ export function withImportedContract(
 /** Even a single-character edit invalidates the old document page map and every previous finding. */
 export function withEditedContract(state:ContractWorkspaceState,text:string):ContractWorkspaceState {
   if(text===state.source.text)return state;
-  return {source:createSource(text,state.source.origin==='sample'?'pasted':'edited',{
+  // Only text that came from a file has an original whose completeness the edit can break.
+  const fromFile=state.source.origin==='uploaded'||state.source.origin==='edited';
+  if(!fromFile)return {source:createSource(text,'pasted'),review:null,selectedFindingId:null};
+  return {source:createSource(text,'edited',{
     integrity:'needs-review',
     warnings:['正文已手动修改，原文件页码与解析完整性不再适用；请重新核对全部条款。']
   }),review:null,selectedFindingId:null};

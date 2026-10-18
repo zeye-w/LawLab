@@ -108,3 +108,27 @@ test('PDF source mapping always locates the exact canonical text on the real phy
   assert.equal(blank.text,'甲方可随时解除合同。');
   assert.deepEqual(blank.pageSpans,[{page:3,start:0,end:blank.text.length}]);
 });
+
+test('pasting or editing the sample is not treated as a damaged file import',()=>{
+  const pasted=withEditedContract(initialContractWorkspace(),'第一条 甲方可随时无理由解除本合同。第二条 争议提交法院诉讼解决。');
+  assert.equal(pasted.source.origin,'pasted');
+  assert.equal(pasted.source.integrity,'complete');
+  assert.deepEqual(pasted.source.warnings,[]);
+  const again=withEditedContract(pasted,pasted.source.text+'补充。');
+  assert.equal(again.source.origin,'pasted');
+  assert.equal(again.source.integrity,'complete');
+});
+test('a blocked source is never reviewed',()=>{
+  const state=initialContractWorkspace();
+  const blocked={...state,source:{...state.source,integrity:'blocked' as const}};
+  assert.strictEqual(withReviewedContract(blocked),blocked);
+  assert.equal(currentReviewFindings(withReviewedContract(blocked)),null);
+});
+test('revision ids do not need crypto.randomUUID (plain-http LAN preview)',()=>{
+  const original=Object.getOwnPropertyDescriptor(globalThis,'crypto');
+  Object.defineProperty(globalThis,'crypto',{value:{},configurable:true});
+  try{
+    const a=initialContractWorkspace(),b=withEditedContract(a,a.source.text+'。');
+    assert.ok(a.source.revisionId&&b.source.revisionId&&a.source.revisionId!==b.source.revisionId);
+  }finally{if(original)Object.defineProperty(globalThis,'crypto',original);}
+});
