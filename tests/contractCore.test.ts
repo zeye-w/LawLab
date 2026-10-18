@@ -4,7 +4,7 @@ import { reviewContract, SAMPLE_CONTRACT } from '../src/lib/contractRules.ts';
 import { flattenPdfTextPages, normalizeContractText } from '../src/lib/contractImport.ts';
 import type { ContractImportResult } from '../src/lib/contractImport.ts';
 import {
-  currentReviewFindings,hasCurrentReview,initialContractWorkspace,selectReviewFinding,
+  canAssessMissingClauses,withDocumentScope,currentReviewFindings,hasCurrentReview,initialContractWorkspace,selectReviewFinding,
   withEditedContract,withImportedContract,withReviewedContract,withSampleContract
 } from '../src/lib/contracts/workspace.ts';
 
@@ -131,4 +131,50 @@ test('revision ids do not need crypto.randomUUID (plain-http LAN preview)',()=>{
     const a=initialContractWorkspace(),b=withEditedContract(a,a.source.text+'。');
     assert.ok(a.source.revisionId&&b.source.revisionId&&a.source.revisionId!==b.source.revisionId);
   }finally{if(original)Object.defineProperty(globalThis,'crypto',original);}
+});
+
+test('source text extraction completeness is distinct from completeness of supplied contract',()=>{
+  const start=initialContractWorkspace();
+  assert.equal(start.source.integrity,'complete');
+  assert.equal(start.source.documentScope,'whole'); // fictional complete sample
+  assert.equal(canAssessMissingClauses(start.source),true);
+  const pasted=withEditedContract(start,'双方约定付款。争议解决事项待讨论。');
+  assert.equal(pasted.source.integrity,'complete');
+  assert.equal(pasted.source.documentScope,'unknown');
+  assert.equal(canAssessMissingClauses(pasted.source),false);
+  const reviewed=withReviewedContract(pasted);
+  assert.ok(!currentReviewFindings(reviewed)?.some(f=>f.id==='disputes'));
+  const excerpt=withDocumentScope(pasted,'excerpt');
+  assert.equal(excerpt.source.documentScope,'excerpt');
+  assert.equal(canAssessMissingClauses(excerpt.source),false);
+});
+
+test('missing-clause warning is gated by explicit whole-document declaration and complete extraction',()=>{
+  const start=initialContractWorkspace();
+  const text='双方约定交付和付款，确认验收程序并保留相关书面凭证。应当遵守诚实信用并及时履行各自的其他合同义务。';
+  const file:ContractImportResult={name:'contract.txt',format:'txt',text,
+    integrity:'complete',warnings:[]};
+  const unknown=withImportedContract(start,file);
+  assert.equal(unknown.source.documentScope,'unknown');
+  assert.equal(withReviewedContract(unknown).review?.findings.some(f=>f.id==='disputes'),false);
+  const confirmed=withDocumentScope(unknown,'whole');
+  assert.equal(canAssessMissingClauses(confirmed.source),true);
+  assert.equal(withReviewedContract(confirmed).review?.findings.some(f=>f.id==='disputes'),true);
+  const needsReview=withImportedContract(start,{...file,format:'pdf',name:'missing-page.pdf',
+    integrity:'needs-review',warnings:['第 2 页未提取到正文']});
+  const confirmedButIncomplete=withDocumentScope(needsReview,'whole');
+  assert.equal(canAssessMissingClauses(confirmedButIncomplete.source),false);
+  assert.equal(withReviewedContract(confirmedButIncomplete).review?.findings.some(f=>f.id==='disputes'),false);
+});
+
+test('switching document scope drops old review even when text bytes remain unchanged',()=>{
+  const before=withReviewedContract(initialContractWorkspace());
+  assert.ok(currentReviewFindings(before)?.some(f=>f.id==='disputes'));
+  const excerpt=withDocumentScope(before,'excerpt');
+  assert.equal(excerpt.source.revisionId,before.source.revisionId);
+  assert.equal(currentReviewFindings(excerpt),null);
+  assert.equal(excerpt.selectedFindingId,null);
+  assert.equal(canAssessMissingClauses(excerpt.source),false);
+  assert.equal(withReviewedContract(excerpt).review?.findings.some(f=>f.id==='disputes'),false);
+  assert.strictEqual(withDocumentScope(excerpt,'excerpt'),excerpt);
 });
