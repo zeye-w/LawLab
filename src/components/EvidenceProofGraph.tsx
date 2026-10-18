@@ -23,7 +23,7 @@ export function EvidenceProofGraph({selected,onToggle}:Props){
           if(from<0||to<0)return null;
           const x1=245,y1=evidenceY[from],x2=658,y2=factY[to];
           const d=`M ${x1} ${y1} C ${x1+175} ${y1}, ${x2-175} ${y2}, ${x2} ${y2}`;
-          return <path key={edge.id} d={d} className={edge.active?'proof-edge proof-edge-on':'proof-edge proof-edge-off'}/>;
+          return <path key={edge.id} d={d} pathLength={1} className={edge.active?'proof-edge proof-edge-on':'proof-edge proof-edge-off'}/>;
         })}
       </g>
       <g className="proof-evidence-nodes">

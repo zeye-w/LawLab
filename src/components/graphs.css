@@ -1,11 +1,12 @@
 /* Graph visualization uses native inline SVG. No external layout or animation libraries. */
 .knowledge-graph-wrap {background:radial-gradient(circle at 50% 46%,#f0f6f3 0%,#fcfdfb 82%);border:1px solid #e3ece7;border-radius:13px;padding:10px;}
 .knowledge-graph-svg {display:block;width:100%;height:auto;max-height:470px;overflow:visible;}
-.knowledge-edge {vector-effect:non-scaling-stroke;stroke-width:1.5;transition:opacity 210ms ease,stroke 210ms ease;}
+/* No non-scaling-stroke here: it would measure dashes in screen pixels and break pathLength=1. */
+.knowledge-edge {stroke-width:1.5;transition:opacity 210ms ease,stroke 210ms ease;}
 .knowledge-edge-off {stroke:#c7d9d0;opacity:.17;}
-.knowledge-edge-on {stroke:#70a595;stroke-width:2.5;opacity:.95;stroke-dasharray:420;stroke-dashoffset:0;
+.knowledge-edge-on {stroke:#70a595;stroke-width:2.5;opacity:.95;stroke-dasharray:1;stroke-dashoffset:0;
   animation:graph-link-light 400ms ease both;}
-@keyframes graph-link-light {from{stroke-dashoffset:420;opacity:.15}to{stroke-dashoffset:0;opacity:.95}}
+@keyframes graph-link-light {from{stroke-dashoffset:1;opacity:.15}to{stroke-dashoffset:0;opacity:.95}}
 .knowledge-svg-node {cursor:pointer;outline:none;transition:opacity 230ms ease,filter 230ms ease;}
 .knowledge-svg-node rect {fill:#fff;stroke:#d5e3dc;stroke-width:1.6;transition:stroke 210ms,fill 210ms;}
 .knowledge-svg-node.civil rect{fill:#f4f8f5;}
@@ -23,10 +24,10 @@
 .proof-network {border:1px solid #e1e9e4;border-radius:12px;background:#fbfdfb;padding:15px 12px;margin:18px 0;}
 .proof-network-head {display:flex;justify-content:space-between;padding:0 7%;font-size:11px;font-weight:720;color:#84988c;}
 .proof-network-svg {display:block;width:100%;height:auto;overflow:visible;}
-.proof-edge {fill:none;stroke-width:2.2;vector-effect:non-scaling-stroke;transition:opacity 240ms ease,stroke 240ms ease;}
-.proof-edge-off {stroke:#bfcfc4;opacity:.17;stroke-dasharray:4 6;}
-.proof-edge-on {stroke:#6eaa96;opacity:1;stroke-dasharray:600;animation:graph-evidence-link 400ms ease both;}
-@keyframes graph-evidence-link {from{stroke-dashoffset:600;opacity:.05}to{stroke-dashoffset:0;opacity:1}}
+.proof-edge {fill:none;stroke-width:2.2;transition:opacity 240ms ease,stroke 240ms ease;}
+.proof-edge-off {stroke:#bfcfc4;opacity:.17;stroke-dasharray:.008 .012;}
+.proof-edge-on {stroke:#6eaa96;opacity:1;stroke-dasharray:1;animation:graph-evidence-link 400ms ease both;}
+@keyframes graph-evidence-link {from{stroke-dashoffset:1;opacity:.05}to{stroke-dashoffset:0;opacity:1}}
 .proof-graph-evidence {cursor:pointer;outline:none;transition:opacity 230ms ease;}
 .proof-graph-evidence rect,.proof-graph-fact rect{stroke:#dce5de;stroke-width:1.4;fill:white;}
 .proof-graph-on rect {fill:#edf6f1;stroke:#83b29b;stroke-width:2;}

@@ -41,8 +41,10 @@ test('evidence-to-fact graph does not invent relationships and exposes uncovered
     assert.equal(edge.active,false);
   }
   assert.deepEqual(uncoveredFactIds([]).sort(),[...factIds].sort());
-  assert.deepEqual(uncoveredFactIds(['contract']),['extension']);
-  assert.deepEqual(uncoveredFactIds(['contract','messages']),[]);
+  assert.deepEqual(EVIDENCE_FACT_LINKS.contract,['agreement']);
+  assert.deepEqual(uncoveredFactIds(['contract']),['payment','delivery','extension']);
+  assert.deepEqual(uncoveredFactIds(['contract','messages']),['payment']);
+  assert.deepEqual(uncoveredFactIds(['contract','transfer','messages']),[]);
   assert.equal(proofEdges(['transfer']).filter(e=>e.active).length,1);
   assert.deepEqual(uncoveredFactIds(['not-an-evidence-id']).sort(),[...factIds].sort());
 });

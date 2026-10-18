@@ -43,7 +43,8 @@ export const PROOF_FACTS=[
 ] as const;
 
 export const EVIDENCE_FACT_LINKS:Readonly<Record<string,readonly string[]>>={
-  contract:['agreement','delivery','payment'],
+  // A contract proves what was agreed, not that payment or delivery actually happened.
+  contract:['agreement'],
   transfer:['payment'],
   delivery:['delivery'],
   messages:['extension','delivery']

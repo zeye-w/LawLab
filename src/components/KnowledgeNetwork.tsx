@@ -22,7 +22,8 @@ export function KnowledgeNetwork({selected,onSelect}:Props){
           if(!a||!b)return null;
           const active=edge.a===selected||edge.b===selected;
           const lag=active?delay++*65:0;
-          return <line key={selected+'-'+edge.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+          // pathLength=1 makes the dash animation span the whole line whatever its rendered size.
+          return <line key={selected+'-'+edge.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} pathLength={1}
             className={active?'knowledge-edge knowledge-edge-on':'knowledge-edge knowledge-edge-off'}
             style={{animationDelay:active?lag+'ms':undefined}}/>;
         })}
