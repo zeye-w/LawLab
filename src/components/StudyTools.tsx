@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, CircleHelp, GitBranch, RotateCcw, Sparkles } from 'lucide-react';
 import { KNOWLEDGE_NODES, STUDY_CARDS, type StudyTopic } from '../data/study';
+import { linkedConceptIds } from '../lib/relationshipMaps';
+import { KnowledgeNetwork } from './KnowledgeNetwork';
 
 type Recall = 'known' | 'again';
 type RecallHistory = Record<string, Recall>;
@@ -65,16 +67,13 @@ export function Flashcards() {
 export function KnowledgeGraph() {
   const [selected, setSelected] = useState('relationship');
   const current = KNOWLEDGE_NODES.find(node=>node.id===selected) || KNOWLEDGE_NODES[0];
-  const related = KNOWLEDGE_NODES.filter(node=>current.related.includes(node.id));
+  const linked=linkedConceptIds(current.id);
+  const related = KNOWLEDGE_NODES.filter(node=>node.id!==current.id&&linked.has(node.id));
   return <div>
     <div className="page-heading"><div><div className="eyebrow">LAWLAB LEARN / CONCEPT CONNECTIONS</div><h1>法律知识图谱</h1><p>从法律关系出发，点击概念节点，观察请求权、待证事实、证据及抗辩之间的联系。</p></div><span className="pill pill-green">互动概念地图</span></div>
     <section className="panel knowledge-panel">
       <div className="knowledge-guide"><GitBranch size={18}/><span>选择任一节点。与当前节点直接相关的概念会被高亮。</span></div>
-      <div className="knowledge-map" role="group" aria-label="法律知识概念节点">
-        {KNOWLEDGE_NODES.map(node=><button key={node.id} type="button" className={`knowledge-node ${node.id===selected?'knowledge-selected':''} ${current.related.includes(node.id)?'knowledge-linked':''}`} aria-pressed={node.id===selected} onClick={()=>setSelected(node.id)}>
-          <span className="knowledge-kind">{node.category}</span><strong>{node.title}</strong>
-        </button>)}
-      </div>
+      <KnowledgeNetwork selected={selected} onSelect={setSelected}/>
     </section>
     <div className="layout-split knowledge-detail">
       <section className="panel"><div className="eyebrow">SELECTED CONCEPT</div><h2 className="knowledge-title">{current.title}</h2><p>{current.summary}</p><div className="knowledge-question"><Sparkles size={17}/><div><strong>思考问题</strong><p>{current.question}</p></div></div></section>
