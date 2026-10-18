@@ -125,3 +125,13 @@ test('GB18030 recovery always displays manual verification warning',()=>{
   assert.ok(decoded.text.includes('甲方'));
   assert.ok(decoded.warnings.some(x=>x.includes('人工核对')));
 });
+
+test('contract import progress uses actual reading, parsing and completion stages',async()=>{
+  const stages:string[]=[];
+  const sample='第二条 合同解除：甲方可随时无理由解除本合同。双方应当依照约定履行各自义务。';
+  const result=await importContractFile(browserFile(sample,'stages.txt'),progress=>{
+    stages.push(progress.stage+'|'+progress.format);
+  });
+  assert.equal(result.format,'txt');
+  assert.deepEqual(stages,['reading|txt','parsing|txt','complete|txt']);
+});
