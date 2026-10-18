@@ -1,18 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { KNOWLEDGE_NODES } from '../data/study';
 import { knowledgeEdges, linkedConceptIds } from '../lib/relationshipMaps';
 import { buildConceptScene, CAMERA_BOUNDS, nodeRadius, COMPACT_SCENE, compactScene, DEFAULT_CAMERA, fitCamera, hitTest3D,
   orbit, placeLabels, project3D, zoom, type OrbitCamera } from '../lib/concept3d';
 import './graphs.css';
 
-type Props = { selected: string; onSelect: (id: string) => void };
+type Props = { selected: string; onSelect: (id: string) => void; concepts?: typeof KNOWLEDGE_NODES };
 const CATEGORY_TOKEN: Record<string, string> = {
   '总览':'--kg-core', '民法':'--kg-civil', '证据法':'--kg-evidence', '法律方法':'--kg-method',
 };
-const NODES = buildConceptScene(KNOWLEDGE_NODES, knowledgeEdges());
-const COMPACT_NODES = compactScene(NODES);
-const EDGES = knowledgeEdges();
-const META = new Map(KNOWLEDGE_NODES.map(node => [node.id, node]));
 const LABEL_H = 23;
 
 /** Rounded label box drawn with arcTo, so browsers without ctx.roundRect still paint. */
@@ -26,7 +22,11 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
 
 /** Perspective 3D concept explorer. Uses the browser's 2D canvas as a lightweight 3D
  * projection surface (no WebGL runtime), with a separate keyboard-accessible node list. */
-export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
+export function KnowledgeNetwork3D({ selected, onSelect, concepts = KNOWLEDGE_NODES }: Props) {
+  const EDGES = useMemo(()=>knowledgeEdges(concepts),[concepts]);
+  const NODES = useMemo(()=>buildConceptScene(concepts,EDGES),[concepts,EDGES]);
+  const COMPACT_NODES = useMemo(()=>compactScene(NODES),[NODES]);
+  const META = useMemo(()=>new Map(concepts.map(node => [node.id, node])),[concepts]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef(selected);
@@ -60,7 +60,7 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx!.clearRect(0, 0, width, height);
       const active = hover ?? focusRef.current ?? selectedRef.current;
-      const linked = linkedConceptIds(active);
+      const linked = linkedConceptIds(active,concepts);
       const strict = contrast.matches;
 
       const lines = EDGES.map(edge => {
@@ -187,7 +187,7 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('wheel',wheel);
       api.current=null;
     };
-  },[]);
+  },[NODES,COMPACT_NODES,EDGES,META,concepts]);
 
   return <div className="knowledge-graph-wrap knowledge-graph-3d">
     <div className="kg-stage kg3d-stage" ref={stageRef}>
@@ -203,7 +203,7 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       <p className="kg-hint" aria-hidden="true">拖动旋转视角 · 点击概念 · Ctrl/⌘ + 滚轮缩放</p>
     </div>
     <div className="kg-node-list" role="group" aria-label="三维法律概念节点：选择后在下方查看解释">
-      {KNOWLEDGE_NODES.map(node=><button key={node.id} type="button"
+      {concepts.map(node=><button key={node.id} type="button"
         aria-pressed={node.id===selected}
         className={'kg-chip kg-chip-'+(CATEGORY_TOKEN[node.category]??'--kg-core').slice(5)}
         onClick={()=>onSelect(node.id)}
