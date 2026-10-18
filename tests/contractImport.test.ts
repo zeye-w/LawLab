@@ -5,7 +5,7 @@ import {File as NodeFile} from 'node:buffer';
 import {fileURLToPath} from 'node:url';
 import {reviewContract} from '../src/lib/contractRules.ts';
 import {
-  contractFormat,validContractHeader,normalizeContractText,validatedContractText,
+  contractFormat,validContractHeader,normalizeContractText,normalizePdfText,joinPdfSoftWraps,decodeContractTxt,validatedContractText,
   inspectDocxZip,importContractFile,MAX_CONTRACT_FILE_BYTES,MAX_CONTRACT_TEXT_CHARS
 } from '../src/lib/contractImport.ts';
 import readLegacyWord from '../src/lib/vendor/docToText.js';
@@ -29,7 +29,7 @@ test('recognized formats include doc, docx, pdf and txt with no extension spoofi
   assert.equal(MAX_CONTRACT_FILE_BYTES,8*1024*1024);
 });
 test('normalize PDF CJK text runs for existing contract rule engine without inventing clauses',()=>{
-  const value=normalizeContractText('甲 方 可 随 时 无 理 由 解 除 本 合 同。\r\n\n付款时间另行协商。\u0000');
+  const value=normalizePdfText('甲 方 可 随 时 无 理 由 解 除 本 合 同。\r\n\n付款时间另行协商。\u0000');
   assert.ok(value.includes('甲方可随时无理由解除本合同'));
   assert.ok(reviewContract(value).some(f=>f.id==='termination'));
   assert.throws(()=>validatedContractText('   '));
@@ -64,4 +64,64 @@ test('DOCX ZIP metadata is checked before decompression and oversized entry is r
   view.setUint32(at+24,50*1024*1024,true);
   assert.throws(()=>inspectDocxZip(bad),/安全限制/);
   assert.throws(()=>inspectDocxZip(Uint8Array.from([80,75,3,4])),/结构/);
+});
+
+test('PDF layout wraps are rejoined so a wrapped high-risk clause is still found',()=>{
+  // Shape of real pdf.js output from a narrow column: each visual line ends with " \n".
+  const page='服务合作协议（虚构） \n第一条 服务内容：乙方提供品牌视觉设计 \n及相关交付文件，具体验收标准另行约 \n定。 \n第三条 合同解除：甲方可随时无理由解除 \n本合同，乙方应当停止工作。 \n甲方：清河科技有限公司 \n乙方：知行设计工作室';
+  const text=normalizePdfText(page);
+  assert.deepEqual(text.split('\n'),['服务合作协议（虚构）','第一条服务内容：乙方提供品牌视觉设计及相关交付文件，具体验收标准另行约定。',
+    '第三条合同解除：甲方可随时无理由解除本合同，乙方应当停止工作。','甲方：清河科技有限公司','乙方：知行设计工作室']);
+  const ids=reviewContract(text).map(f=>f.id);
+  assert.ok(ids.includes('termination'),ids.join());
+  assert.ok(ids.includes('acceptance'),ids.join());
+  assert.equal(joinPdfSoftWraps('Party A may termi-\nnate'),'Party A may termi-nate');
+  assert.equal(joinPdfSoftWraps('without\nnotice'),'without notice');
+  assert.equal(joinPdfSoftWraps('1. Scope\n2. Fees'),'1. Scope\n2. Fees');
+  assert.equal(joinPdfSoftWraps('段落一。\n\n段落二'),'段落一。\n\n段落二');
+});
+test('plain text keeps its line breaks and the spaces between Chinese words',()=>{
+  const value=normalizeContractText('第一条 服务内容：乙方提供设计服务。  \n第二条 合同解除：甲方可随时解除。\t\n');
+  assert.deepEqual(value.split('\n'),['第一条 服务内容：乙方提供设计服务。','第二条 合同解除：甲方可随时解除。']);
+});
+const GBK_SAMPLE_HEX='b5dab6feccf520bacfcdacbde2b3fda3babcd7b7bdbfc9cbe6cab1cedec0edd3c9bde2b3fdb1bebacfcdaca1a3cbabb7bdd3a6b5b1d2c0d5d5d4bcb6a8c2c4d0d0d2e5cef1a1a3';
+test('GBK-encoded TXT files from Chinese Windows are imported with a warning',async()=>{
+  const sample='第二条 合同解除：甲方可随时无理由解除本合同。双方应当依照约定履行义务。';
+  // GBK bytes of the sample (Python: sample.encode('gbk').hex()); browsers have no GBK encoder.
+  const bytes=Buffer.from(GBK_SAMPLE_HEX,'hex');
+  assert.equal(new TextDecoder('gb18030').decode(bytes),sample);
+  const imported=await importContractFile(browserFile(bytes,'contract-gbk.txt'));
+  assert.equal(imported.text,sample);
+  assert.ok(imported.warnings.some(w=>w.includes('GBK')));
+  assert.ok(reviewContract(imported.text).some(f=>f.id==='termination'));
+});
+
+test('PDF wrapped lines preserve indented and hierarchical clause headers',()=>{
+  const cases=[
+    ['第一条 费用\n1.1 付款条件：三十日内支付','第一条 费用\n1.1 付款条件：三十日内支付'],
+    ['第一条 费用\n  第二条 履行期限','第一条 费用\n  第二条 履行期限'],
+    ['第一条 费用\n1.1.2 支付方式','第一条 费用\n1.1.2 支付方式'],
+    ['第一条 费用\n  （二）结算规则','第一条 费用\n  （二）结算规则'],
+    ['第一条 费用\n    2、履约条件','第一条 费用\n    2、履约条件'],
+    ['甲方可随时解除\n本合同','甲方可随时解除本合同']
+  ];
+  for(const [input,expected] of cases)assert.equal(joinPdfSoftWraps(input),expected);
+});
+test('GB18030 fallback rejects invalid bytes and suspicious binary content instead of silently reviewing',async()=>{
+  const malformed=Buffer.from([0x81]); // incomplete multibyte sequence
+  assert.throws(()=>decodeContractTxt(malformed),/编码/);
+  await assert.rejects(importContractFile(browserFile(malformed,'invalid.txt')),/编码/);
+  const binary=Buffer.from([0xff,0x00,0xff]); // apparent binary / control bytes
+  assert.throws(()=>decodeContractTxt(binary),/编码|不可信/);
+  const codepoint=Buffer.from([0x81,0x30,0x81,0x30]); // well-formed GB18030 but not plausible Chinese contract text
+  assert.throws(()=>decodeContractTxt(codepoint),/不可信/);
+  const ascii=decodeContractTxt(Buffer.from('Party A pays Party B.'));
+  assert.equal(ascii.text,'Party A pays Party B.');
+  assert.deepEqual(ascii.warnings,[]);
+});
+test('GB18030 recovery always displays manual verification warning',()=>{
+  const bytes=Buffer.from(GBK_SAMPLE_HEX,'hex');
+  const decoded=decodeContractTxt(bytes);
+  assert.ok(decoded.text.includes('甲方'));
+  assert.ok(decoded.warnings.some(x=>x.includes('人工核对')));
 });
