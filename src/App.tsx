@@ -12,6 +12,7 @@ import { EvidenceProofGraph } from './components/EvidenceProofGraph';
 import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 import { PaperWorkspace } from './components/PaperWorkspace';
+import { Seal } from './components/Seal';
 
 type ModuleId = 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'paper' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
 type ToolId = Exclude<ModuleId, 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit'>;
@@ -207,13 +208,14 @@ function Quiz() {
   },[score]);
   const done = responses.every(answer=>answer!==null);
   const [feedbackKey,setFeedbackKey] = useState<string|null>(null);
-  function choose(v:number){if(response===null){setResponses(old=>old.map((x,i)=>i===index?v:x));if(motionAllowed())setFeedbackKey(`${index}-${v}`);}}
+  const [doneAt,setDoneAt] = useState(0);
+  function choose(v:number){if(response===null){if(responses.filter(a=>a===null).length===1)setDoneAt(Date.now());setResponses(old=>old.map((x,i)=>i===index?v:x));if(motionAllowed())setFeedbackKey(`${index}-${v}`);}}
   return <>
     <PageHeading eyebrow="MODULE 04 / LEGAL QUIZ" title="法学闯关" description="5 道原创情境练习，完成选择后查看对应的法律分析。" right={<Pill tone="green">本机记录进度</Pill>}/>
     <div className="quiz-shell panel"><div className="quiz-bar"><span>QUESTION {String(index+1).padStart(2,'0')} / 05</span><span>答对 <span className="score-number" aria-label={`答对 ${score} 题`}>{displayScore}</span> 题</span></div><div className="progress-track"><div style={{width:`${(responses.filter(a=>a!==null).length/QUIZ.length)*100}%`}}/></div>
       <Pill tone="blue">{q.topic}</Pill><h2 className="quiz-question">{q.stem}</h2><div className="choice-list">{q.options.map((opt,i)=>{const revealed=response!==null; const correct=revealed&&i===q.answer;const wrong=revealed&&i===response&&response!==q.answer;return <button disabled={revealed} key={i} className={`choice ${correct?'choice-correct':wrong?'choice-wrong':''} ${response===i&&feedbackKey===`${index}-${i}`?(correct?'choice-pulse':wrong?'choice-shake':''):''}`} onAnimationEnd={e=>{if(e.target===e.currentTarget)setFeedbackKey(null);}} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt}</span>{correct&&<CheckCircle2 size={18}/>}</button>;})}</div>
       {response!==null&&<div className={`feedback ${response===q.answer?'positive':'caution'}`} role="status"><strong>{response===q.answer?'回答正确':'还需要再想想'}</strong><p>{q.explanation}</p></div>}
-      {done&&<div className="quiz-summary"><strong>本轮完成 · {score}/{QUIZ.length}</strong><p>可以返回之前的题目复习解析，也可以清除进度重新练习。</p></div>}
+      {done&&<div className="quiz-summary with-seal"><Seal chars={['研','读','毕']} label="本轮研读完毕" size={58} stampKey={doneAt||undefined}/><div><strong>本轮完成 · {score}/{QUIZ.length}</strong><p>可以返回之前的题目复习解析，也可以清除进度重新练习。</p></div></div>}
       <div className="panel-actions"><button className="btn subtle" onClick={()=>setIndex(i=>Math.max(0,i-1))} disabled={index===0}><ArrowLeft size={16}/> 上一题</button><div className="action-side"><button className="btn ghost" onClick={()=>{setResponses(Array(QUIZ.length).fill(null));setIndex(0);}}><RotateCcw size={15}/> 重新开始</button><button className="btn primary" disabled={index===QUIZ.length-1||response===null} onClick={()=>setIndex(i=>i+1)}>下一题 <ArrowRight size={15}/></button></div></div>
     </div>
   </>;

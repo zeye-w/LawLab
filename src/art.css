@@ -1,0 +1,49 @@
+/* LawLab art details: study seals and ruled writing paper. Loaded after the base theme. */
+:root {
+  --cinnabar: #a8473a;             /* seal ink; used only on seals and risk underlines */
+  --rule-line: #dbe5ec;            /* writing-paper rules */
+  --margin-line: #e6c3bb;          /* writing-paper margin */
+  --seal-serif: "Songti SC", "STSong", "Noto Serif SC", "Noto Serif CJK SC", "SimSun", serif;
+}
+
+/* ---------- Seals ---------- */
+.law-seal { display: inline-block; flex: none; opacity: .92; transform: rotate(-8deg); overflow: visible; }
+.law-seal-ink { fill: var(--cinnabar); stroke: var(--cinnabar); }
+.law-seal-ink text { stroke: none; font-family: var(--seal-serif); font-weight: 900; }
+.law-seal-stamp { animation: lawStamp .42s cubic-bezier(.2, .9, .3, 1.25) both; }
+@keyframes lawStamp {
+  0%   { opacity: 0; transform: rotate(-14deg) scale(1.7); }
+  60%  { opacity: .95; transform: rotate(-7deg) scale(.94); }
+  100% { opacity: .92; transform: rotate(-8deg) scale(1); }
+}
+.seal-slot { display: inline-flex; align-items: center; gap: 8px; }
+.study-stats .seal-slot strong { line-height: 1; }
+.flash-top .seal-slot { gap: 6px; }
+.quiz-summary.with-seal { display: flex; align-items: center; gap: 18px; }
+.quiz-summary.with-seal > div { min-width: 0; }
+.paper-overview .seal-slot small { display: block; }
+
+/* ---------- Ruled writing paper for the contract and paper editors ----------
+   Rules repeat at the line height and scroll with the text (background-attachment: local). */
+.contract-text, .paper-body {
+  --lh: 24px; --pad-top: 18px; --gutter: 46px;
+  line-height: var(--lh) !important;
+  padding-left: calc(var(--gutter) + 12px) !important;
+  background-color: #fdfefd !important;
+  background-image:
+    linear-gradient(90deg, transparent calc(var(--gutter) - 1px), var(--margin-line) calc(var(--gutter) - 1px), var(--margin-line) var(--gutter), transparent var(--gutter)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 1px), var(--rule-line) calc(var(--lh) - 1px), var(--rule-line) var(--lh)) !important;
+  background-position: 0 0, 0 var(--pad-top) !important;
+  background-attachment: local !important;
+}
+.contract-text { --lh: 24px; --pad-top: 18px; padding-top: var(--pad-top) !important; }
+.paper-body { --lh: 28px; --pad-top: 11px; padding-top: var(--pad-top) !important; }
+@media (max-width: 640px) {
+  .contract-text, .paper-body { --gutter: 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .law-seal-stamp { animation: none; }
+}
+@media (prefers-contrast: more) {
+  .contract-text, .paper-body { --rule-line: #b7c7d2; --margin-line: #c98b7e; }
+}

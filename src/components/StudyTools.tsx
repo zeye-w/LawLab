@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Check, CircleHelp, GitBranch, RotateCc
 import { KNOWLEDGE_NODES, STUDY_CARDS, type StudyTopic } from '../data/study';
 import { linkedConceptIds } from '../lib/relationshipMaps';
 import { KnowledgeNetwork } from './KnowledgeNetwork';
+import { Seal } from './Seal';
 
 type Recall = 'known' | 'again';
 type RecallHistory = Record<string, Recall>;
@@ -30,8 +31,11 @@ export function Flashcards() {
   function changeTopic(next: StudyTopic|'全部') {setTopic(next);setIndex(0);setRevealed(false);}
   function changeFilter(next: 'all'|'again'|'new') {setFilter(next);setIndex(0);setRevealed(false);}
   function goto(next: number) {setIndex(Math.max(0,Math.min(list.length-1,next)));setRevealed(false);}
+  // Set when a card becomes mastered in this session, so only that moment plays the stamp.
+  const [stampAt, setStampAt] = useState(0);
   function mark(value: Recall) {
     if (!current) return;
+    if (value === 'known' && history[current.id] !== 'known') setStampAt(Date.now());
     setHistory(old => ({...old,[current.id]:value}));
     setRevealed(false);
     if (filter === 'all') setIndex(i => Math.min(i+1,list.length-1));
@@ -41,7 +45,7 @@ export function Flashcards() {
     <div className="page-heading"><div><div className="eyebrow">LAWLAB LEARN / ACTIVE RECALL</div><h1>法律记忆卡片</h1><p>先独立回忆，再翻面核对。判断是否掌握，系统会在当前浏览器记录进度。</p></div><span className="pill pill-blue">12 张原创知识卡</span></div>
     <section className="study-stats" aria-label="学习进度">
       <div><span>已练习</span><strong>{reviewed} / {STUDY_CARDS.length}</strong></div>
-      <div><span>已掌握</span><strong>{known}</strong></div>
+      <div><span>已掌握</span><span className="seal-slot"><strong>{known}</strong>{known>0&&<Seal chars={['已','掌','握']} label={`已掌握 ${known} 张`} size={34} stampKey={stampAt||undefined}/>}</span></div>
       <div><span>待复习</span><strong>{STUDY_CARDS.filter(c=>history[c.id]==='again').length}</strong></div>
     </section>
     <div className="study-filters">
@@ -49,7 +53,7 @@ export function Flashcards() {
       <div className="segmented" aria-label="复习状态">{([{id:'all',label:'全部'},{id:'new',label:'未练习'},{id:'again',label:'待复习'}] as const).map(f=><button key={f.id} className={filter===f.id?'selected':''} aria-pressed={filter===f.id} onClick={()=>changeFilter(f.id)}>{f.label}</button>)}</div>
     </div>
     {current ? <section className="study-workspace">
-      <div className="flash-top"><span className="eyebrow">{current.topic} / {String(Math.min(index,list.length-1)+1).padStart(2,'0')} / {list.length}</span><span className="muted tiny">{history[current.id]==='known'?'已掌握':history[current.id]==='again'?'待复习':'尚未标记'}</span></div>
+      <div className="flash-top"><span className="eyebrow">{current.topic} / {String(Math.min(index,list.length-1)+1).padStart(2,'0')} / {list.length}</span><span className="muted tiny seal-slot">{history[current.id]==='known'&&<Seal chars={['已','掌','握']} label="" size={24}/>}{history[current.id]==='known'?'已掌握':history[current.id]==='again'?'待复习':'尚未标记'}</span></div>
       <button key={current.id} className={`flash-card ${revealed?'flash-revealed':''}`}
         onClick={()=>setRevealed(v=>!v)} aria-pressed={revealed}
         aria-label={revealed?`答案：${current.back}。点击返回题目`:`题目：${current.front}。点击查看答案`}>

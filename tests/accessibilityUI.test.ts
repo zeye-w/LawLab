@@ -2,15 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const graphCss=readFileSync(new URL('../src/components/graphs.css',import.meta.url),'utf8');
+import {GRAPH_DIM} from '../src/lib/forceLayout.ts';
+
+const graphUi=readFileSync(new URL('../src/components/KnowledgeNetwork.tsx',import.meta.url),'utf8');
 const contractUi=readFileSync(new URL('../src/components/contracts/ContractWorkspace.tsx',import.meta.url),'utf8');
 
-test('unrelated concept nodes remain legible and high-contrast mode removes muting',()=>{
-  const opacity=graphCss.match(/\.knowledge-svg-muted\{opacity:([\d.]+);\}/)?.[1];
-  assert.ok(opacity,'muted concept node opacity rule must exist');
-  assert.ok(Number(opacity)>=.80, 'concept labels should not be made nearly invisible');
-  assert.match(graphCss,/\.knowledge-svg-muted \.knowledge-svg-label\{fill:#[0-9a-f]{6};\}/i);
-  assert.match(graphCss,/@media\(prefers-contrast:more\)/);
+test('unrelated concept labels remain legible and high-contrast mode removes muting',()=>{
+  // Dots and links of unrelated concepts fade (Obsidian-style); their labels must stay readable.
+  assert.ok(GRAPH_DIM.label>=.80,'concept labels should not be made nearly invisible');
+  assert.ok(GRAPH_DIM.node>0&&GRAPH_DIM.edge>0,'faded parts must stay visible');
+  assert.match(graphUi,/matchMedia\('\(prefers-contrast: more\)'\)/);
+  assert.match(graphUi,/dim = !contrast\.matches/);
+  // The canvas is decorative for assistive tech; every concept is a real, labelled button.
+  assert.match(graphUi,/<canvas[^>]*aria-hidden="true"/);
+  assert.match(graphUi,/KNOWLEDGE_NODES\.map\(node => <button[^>]*aria-pressed=\{node\.id === selected\}/);
 });
 
 test('selecting a contract risk does not force screen-reader focus into the full contract',()=>{

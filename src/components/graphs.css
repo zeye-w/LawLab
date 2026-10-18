@@ -1,33 +1,24 @@
-/* Graph visualization uses native inline SVG. No external layout or animation libraries. */
-.knowledge-graph-wrap {background:radial-gradient(circle at 50% 46%,#f0f6f3 0%,#fcfdfb 82%);border:1px solid #e3ece7;border-radius:13px;padding:10px;}
-.knowledge-graph-svg {display:block;width:100%;height:auto;max-height:470px;overflow:visible;}
-/* No non-scaling-stroke here: it would measure dashes in screen pixels and break pathLength=1. */
-.knowledge-edge {stroke-width:1.5;transition:opacity 210ms ease,stroke 210ms ease;}
-.knowledge-edge-off {stroke:#c7d9d0;opacity:.17;}
-.knowledge-edge-on {stroke:#70a595;stroke-width:2.5;opacity:.95;stroke-dasharray:1;stroke-dashoffset:0;
-  animation:graph-link-light 400ms ease both;}
-@keyframes graph-link-light {from{stroke-dashoffset:1;opacity:.15}to{stroke-dashoffset:0;opacity:.95}}
-.knowledge-svg-node {cursor:pointer;outline:none;transition:opacity 230ms ease,filter 230ms ease;}
-.knowledge-svg-node rect {fill:#fff;stroke:#d5e3dc;stroke-width:1.6;transition:stroke 210ms,fill 210ms;}
-.knowledge-svg-node.civil rect{fill:#f4f8f5;}
-.knowledge-svg-node.evidence rect{fill:#f1f6fb;}
-.knowledge-svg-node.method rect{fill:#f8f5fa;}
-.knowledge-svg-node.core rect{fill:#edf6f0;}
-.knowledge-svg-node:hover rect,.knowledge-svg-node:focus-visible rect{stroke:#4d8d7b;stroke-width:3;}
-.knowledge-svg-selected rect{stroke:#5b9a86!important;stroke-width:3;filter:drop-shadow(0 3px 5px #567e6326);}
-.knowledge-svg-neighbor rect{stroke:#97beaf;}
-/* Keep non-adjacent concepts readable: de-emphasize their borders and fills, not their labels. */
-.knowledge-svg-muted{opacity:.88;}
-.knowledge-svg-muted rect{fill:#fbfcfa!important;stroke:#d7e4db;}
-.knowledge-svg-muted .knowledge-svg-label{fill:#385e51;}
-.knowledge-svg-muted .knowledge-svg-category{fill:#405d50!important;}
-@media(prefers-contrast:more){
-  .knowledge-svg-muted{opacity:1;}
-  .knowledge-svg-muted rect{stroke:#577669;}
-}
-.knowledge-svg-node text {pointer-events:none;font-family:inherit;fill:#48675c;}
-.knowledge-svg-category {font-size:12px;letter-spacing:.7px;fill:#879a90!important;}
-.knowledge-svg-label {font-size:17px;font-weight:700;}
+/* Graphs: evidence map in inline SVG, knowledge map on canvas. No external layout or animation libraries. */
+/* Knowledge graph: canvas force layout. Colors live here as tokens the canvas reads. */
+.knowledge-graph-wrap {--kg-ink:#2f4a42;--kg-line:#c9d9d0;--kg-link:#4f8473;
+  --kg-core:#3f6f61;--kg-civil:#5f8f7d;--kg-evidence:#5b7f9e;--kg-method:#8a7398;
+  display:grid;gap:12px;}
+.kg-stage {position:relative;border:1px solid #e3ece7;border-radius:13px;overflow:hidden;
+  background:radial-gradient(circle at 50% 46%,#f0f6f3 0%,#fcfdfb 82%);}
+.kg-canvas {display:block;width:100%;height:440px;cursor:grab;touch-action:pan-y;}
+.kg-canvas.kg-panning {cursor:grabbing;}
+.kg-tools {position:absolute;right:10px;top:10px;display:flex;gap:6px;}
+.kg-tools button {border:1px solid #dbe6df;background:#fbfdfcdd;border-radius:8px;min-width:30px;padding:4px 9px;font-size:12px;color:#456357;cursor:pointer;}
+.kg-tools button:hover {border-color:#9ebfaf;}
+.kg-hint {position:absolute;left:12px;bottom:9px;margin:0!important;font-size:11px!important;color:#82948b!important;pointer-events:none;}
+.kg-node-list {display:flex;flex-wrap:wrap;gap:7px;}
+.kg-chip {display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe6df;background:#fbfdfc;border-radius:999px;
+  padding:5px 12px;font-size:13px;color:#385e51;cursor:pointer;}
+.kg-chip i {width:9px;height:9px;border-radius:50%;background:var(--kg-core);}
+.kg-chip-civil i{background:var(--kg-civil);} .kg-chip-evidence i{background:var(--kg-evidence);} .kg-chip-method i{background:var(--kg-method);}
+.kg-chip-cat {font-size:11px;color:#7f9389;}
+.kg-chip:hover {border-color:#9ebfaf;}
+.kg-chip[aria-pressed="true"] {background:#e5efe9;border-color:#5b9a86;color:#24403a;font-weight:700;}
 .knowledge-graph-caption {font-size:11px!important;color:#82948b!important;margin:9px 4px 2px!important;line-height:1.7;}
 .proof-network {border:1px solid #e1e9e4;border-radius:12px;background:#fbfdfb;padding:15px 12px;margin:18px 0;}
 .proof-network-head {display:flex;justify-content:space-between;padding:0 7%;font-size:11px;font-weight:720;color:#84988c;}
@@ -51,16 +42,16 @@
   margin:12px 0;padding:12px 14px;color:#536b5c;}
 .contract-match-preview strong{display:block;font-size:11px;color:#638575;margin-bottom:7px;}
 .contract-match-preview p{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;margin:0;}
-.contract-match-preview mark{background:#f9e7b4;color:#705632;padding:2px 1px;border-radius:2px;box-decoration-break:clone;}
+.contract-match-preview mark{background:#a8473a1f;color:#5c3a33;border-bottom:1.5px solid #a8473a;padding:1px 1px 0;box-decoration-break:clone;}
 .contract-match-preview small{display:block;font-size:10px;color:#83978c;margin-top:7px;}
 .contract-text::selection{background:#f4d88e;color:#364b3e;}
 @media(max-width:640px){
-  .knowledge-graph-wrap{padding:2px;overflow-x:auto;}
-  .knowledge-graph-svg{min-width:600px;}
+  .kg-canvas{height:360px;}
+  .kg-chip-cat{display:none;}
   .proof-network{padding:12px 6px;overflow-x:auto;}
   .proof-network-svg{min-width:540px;}
 }
 @media(prefers-reduced-motion:reduce){
-  .knowledge-edge,.knowledge-svg-node,.knowledge-svg-node rect,.proof-edge,.proof-graph-evidence{transition:none!important;}
-  .knowledge-edge-on,.proof-edge-on{animation:none!important;stroke-dashoffset:0!important;}
+  .proof-edge,.proof-graph-evidence{transition:none!important;}
+  .proof-edge-on{animation:none!important;stroke-dashoffset:0!important;}
 }
