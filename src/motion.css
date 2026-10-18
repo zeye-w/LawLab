@@ -1,17 +1,66 @@
-/* LawLab microinteractions: CSS-only visuals, no new animation runtime dependency. */
-@keyframes lawPageEnter { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:translateY(0); } }
+/* LawLab unified motion language: A global page transition, B portal breathing,
+   C staged complex-module panels. Transforms affect presentation only. */
+@keyframes lawPageEnter {
+  from {opacity:0;transform:translateY(8px)}
+  to {opacity:1;transform:translateY(0)}
+}
+@keyframes lawPageFadeOut {
+  from {opacity:1;transform:translateY(0)}
+  to {opacity:0;transform:translateY(-2px)}
+}
+@keyframes lawPortalBreathe {
+  from {opacity:.88;transform:translateY(6px) scale(.989)}
+  to {opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes lawSectionReveal {
+  from {opacity:0;transform:translateY(7px)}
+  to {opacity:1;transform:translateY(0)}
+}
 @keyframes lawCorrectPulse { 0%{transform:scale(1)} 45%{transform:scale(1.018)} 100%{transform:scale(1)} }
 @keyframes lawWrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 55%{transform:translateX(4px)} 78%{transform:translateX(-2px)} }
 @keyframes lawItemIn { from { opacity:0;transform:translateY(-10px); } to { opacity:1;transform:translateY(0); } }
 @keyframes lawItemOut { from { opacity:1;max-height:160px;transform:translateY(0); } to { opacity:0;max-height:0;transform:translateY(-8px); } }
 @keyframes lawSkeleton { from { background-position:100% 50%; } to { background-position:0% 50%; } }
 
-.content-enter { animation:lawPageEnter 210ms cubic-bezier(.2,.8,.2,1) both; }
-@supports (view-transition-name: none) {
-  .content-enter { animation:none; }
-  ::view-transition-old(root) { animation:145ms ease-out both fade-out-root; }
-  ::view-transition-new(root) { animation:205ms ease-out both lawPageEnter; }
-  @keyframes fade-out-root { from {opacity:1} to {opacity:0} }
+/* A: Only the main content transitions. Sidebar, toolbar and footer stay stable. */
+.content-enter {animation:lawPageEnter 240ms cubic-bezier(.22,1,.36,1) both;}
+:root.lawlab-native-transitions .content-enter {animation:none;}
+@supports (view-transition-name: lawlab-content) {
+  :root.lawlab-native-transitions {view-transition-name:none;}
+  :root.lawlab-native-transitions .content {view-transition-name:lawlab-content;}
+  ::view-transition-old(lawlab-content) {animation:110ms ease-in both lawPageFadeOut;}
+  ::view-transition-new(lawlab-content) {animation:240ms cubic-bezier(.22,1,.36,1) both lawPageEnter;}
+}
+
+/* B: Workspaces open with a nearly imperceptible 0.989 -> 1 scale.
+   Only their entry surfaces breathe; interactive module cards keep their hover motion. */
+.motion-portal > .hero,
+.motion-portal > .page-heading {
+  animation:lawPortalBreathe 265ms cubic-bezier(.22,1,.36,1) both;
+}
+.motion-portal > .entry-grid,
+.motion-portal > .section-line,
+.motion-portal > .module-grid {
+  animation:lawPortalBreathe 275ms cubic-bezier(.22,1,.36,1) 40ms both;
+}
+
+/* C: Initial reveal only. No keys or animations tied to risk selection,
+   canvas state, evidence toggles or editable contract text. */
+.motion-complex > .page-heading {
+  animation:lawSectionReveal 160ms ease-out both;
+}
+.motion-complex .knowledge-panel,
+.motion-complex .evidence-layout > .panel:first-child,
+.motion-complex .contracts-layout > .panel:first-child {
+  animation:lawSectionReveal 230ms cubic-bezier(.22,1,.36,1) 55ms both;
+}
+.motion-complex .knowledge-detail > .panel:first-child,
+.motion-complex .evidence-layout > .panel:last-child,
+.motion-complex .contracts-layout > .panel:last-child {
+  animation:lawSectionReveal 230ms cubic-bezier(.22,1,.36,1) 105ms both;
+}
+.motion-complex .knowledge-detail > .panel:last-child {
+  animation:lawSectionReveal 230ms cubic-bezier(.22,1,.36,1) 145ms both;
 }
 
 /* A single interactive button with two visually distinct faces. Both
@@ -60,7 +109,12 @@
   .flash-face {padding:22px 17px;gap:15px;}
 }
 @media(prefers-reduced-motion:reduce){
-  .content-enter,.choice-pulse,.choice-shake,.timeline-row-enter,.timeline-row-exit,
+  .content-enter,.motion-portal > .hero,.motion-portal > .page-heading,
+  .motion-portal > .entry-grid,.motion-portal > .section-line,.motion-portal > .module-grid,
+  .motion-complex > .page-heading,.motion-complex .knowledge-panel,
+  .motion-complex .knowledge-detail > .panel,
+  .motion-complex .evidence-layout > .panel,.motion-complex .contracts-layout > .panel,
+  .choice-pulse,.choice-shake,.timeline-row-enter,.timeline-row-exit,
   .finding-enter,.work-skeleton span {animation:none!important;}
   .progress-track>div,.flash-card-inner {transition:none!important;}
   .timeline-row-exit {display:none;}
@@ -68,5 +122,5 @@
   .flash-back {transform:none;display:none;}
   .flash-revealed .flash-front {display:none;}
   .flash-revealed .flash-back {display:flex;}
-  ::view-transition-old(root),::view-transition-new(root){animation:none!important;}
+  ::view-transition-old(lawlab-content),::view-transition-new(lawlab-content){animation:none!important;}
 }
