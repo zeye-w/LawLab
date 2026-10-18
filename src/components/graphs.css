@@ -16,7 +16,15 @@
 .knowledge-svg-node:hover rect,.knowledge-svg-node:focus-visible rect{stroke:#4d8d7b;stroke-width:3;}
 .knowledge-svg-selected rect{stroke:#5b9a86!important;stroke-width:3;filter:drop-shadow(0 3px 5px #567e6326);}
 .knowledge-svg-neighbor rect{stroke:#97beaf;}
-.knowledge-svg-muted{opacity:.37;}
+/* Keep non-adjacent concepts readable: de-emphasize their borders and fills, not their labels. */
+.knowledge-svg-muted{opacity:.88;}
+.knowledge-svg-muted rect{fill:#fbfcfa!important;stroke:#d7e4db;}
+.knowledge-svg-muted .knowledge-svg-label{fill:#385e51;}
+.knowledge-svg-muted .knowledge-svg-category{fill:#405d50!important;}
+@media(prefers-contrast:more){
+  .knowledge-svg-muted{opacity:1;}
+  .knowledge-svg-muted rect{stroke:#577669;}
+}
 .knowledge-svg-node text {pointer-events:none;font-family:inherit;fill:#48675c;}
 .knowledge-svg-category {font-size:12px;letter-spacing:.7px;fill:#879a90!important;}
 .knowledge-svg-label {font-size:17px;font-weight:700;}
