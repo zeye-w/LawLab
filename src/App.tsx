@@ -273,9 +273,18 @@ export default function App(){
     }else move();
   }
   useEffect(()=>{
+    // Activate native snapshots only when the JavaScript API really exists;
+    // browsers without it retain the keyed CSS entrance fallback.
+    const root=document.documentElement;
+    if(typeof (document as Document & {startViewTransition?:unknown}).startViewTransition==='function'){
+      root.classList.add('lawlab-native-transitions');
+    }
     function onHashChange(){changePage(getHashPage(),false);}
     window.addEventListener('hashchange',onHashChange);
-    return()=>window.removeEventListener('hashchange',onHashChange);
+    return()=>{
+      window.removeEventListener('hashchange',onHashChange);
+      root.classList.remove('lawlab-native-transitions');
+    };
   },[]);
   function navigate(id:ModuleId){changePage(id,true);}
   const pageLabels: Partial<Record<ModuleId,string>> = {home:'选择工作台',learn:'学生版',practice:'专业版',litigation:'诉讼业务',nonlit:'非诉业务'};
