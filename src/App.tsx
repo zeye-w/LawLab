@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
 import { ContractWorkspace } from './components/contracts/ContractWorkspace';
+import { EvidenceProofGraph } from './components/EvidenceProofGraph';
 import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 import { PaperWorkspace } from './components/PaperWorkspace';
@@ -182,6 +183,7 @@ function EvidenceLab() {
     <PageHeading eyebrow="MODULE 03 / EVIDENCE LAB" title="证据链实验室" description="选择需要纳入分析的证据，比较证明目的、局限性和待核实事项。" right={<Pill tone="blue">虚构合同纠纷</Pill>}/>
     <div className="layout-split evidence-layout"><div className="panel"><div className="panel-head"><h2>候选证据</h2><span className="muted tiny">已选 {picked.length} / {EVIDENCE.length}</span></div><div className="evidence-list">{EVIDENCE.map(e=><button key={e.id} className={`evidence-card ${picked.includes(e.id)?'evidence-on':''}`} onClick={()=>toggle(e.id)} aria-pressed={picked.includes(e.id)}><span className="checkmark">{picked.includes(e.id)&&<Check size={14}/>}</span><span className="grow"><strong>{e.title}</strong><small>{e.type}</small></span><ChevronRight size={16}/></button>)}</div><Notice>选择证据只改变当前分析清单，不代表证据已被采信，也不等于证明力评分。</Notice></div>
     <div className="panel"><div className="panel-head"><div><div className="eyebrow">PROOF MAP</div><h2>待证事实与支撑关系</h2></div></div><div className="fact-focus"><Scale size={22}/><div><strong>核心待证事实</strong><p>合同关系、是否付款、是否按约交付以及是否协商延期。</p></div></div>
+      <EvidenceProofGraph selected={picked} onToggle={toggle}/>
       <div className="evidence-results">{selected.length?selected.map(e=><div className="evidence-result" key={e.id}><div className="result-title"><span className="result-mark"/><strong>{e.title}</strong></div><p><b>可能支持：</b>{e.purpose}</p><p className="limitation"><b>需要核查：</b>{e.caveat}</p></div>):<Placeholder>尚未选择证据。点击左侧卡片将其加入分析。</Placeholder>}</div>
       <div className="gap-section"><div className="eyebrow">OPEN QUESTIONS</div><strong>目前仍需回答</strong><ul><li>交付标的、数量和期限是否明确？</li><li>是否存在有效的延期合意？</li><li>证据来源和原始载体能否核验？</li></ul></div>
     </div></div>

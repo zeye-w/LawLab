@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type ReactNode } from 'react';
+import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { CheckCircle2, FileSearch, FileText, Search, ShieldCheck, Upload } from 'lucide-react';
 import { importContractFile, type ContractImportProgress } from '../../lib/contractImport';
 import type { ContractFinding } from '../../lib/contractRules';
@@ -7,6 +7,8 @@ import {
   withDocumentScope, withEditedContract, withImportedContract, withReviewedContract, withSampleContract
 } from '../../lib/contracts/workspace';
 import type {ContractDocumentScope} from '../../lib/contracts/workspace';
+import { locateRisk } from '../../lib/contracts/locateRisk';
+import '../graphs.css';
 
 /** Contract-only UI: keep contract data out of shared App state and out of persistent storage. */
 function RiskPill({children,tone='neutral'}:{children:ReactNode;tone?:'neutral'|'red'|'amber'|'green'}){
@@ -22,12 +24,30 @@ export function ContractWorkspace(){
   const [state,setState]=useState(initialContractWorkspace);
   const [uploadError,setUploadError]=useState('');
   const [importing,setImporting]=useState(false);
+  const editorRef=useRef<HTMLTextAreaElement>(null);
+  // While a finding is shown in the editor it is read-only: a stray key must not replace the
+  // selected clause, and phones do not raise the keyboard for a read-only field.
+  const [inspecting,setInspecting]=useState(false);
   const [progress,setProgress]=useState<ContractImportProgress|null>(null);
   const source=state.source;
   const findings=currentReviewFindings(state);
   const current:ContractFinding|undefined=findings?.find(f=>f.id===state.selectedFindingId)??findings?.[0];
   const high=findings?.filter(f=>f.severity==='high').length??0;
+  const highlighted=current?locateRisk(source.text,current):null;
 
+  function focusFinding(finding:ContractFinding){
+    setState(old=>selectReviewFinding(old,finding.id));
+    const location=locateRisk(source.text,finding);
+    if(!location)return;
+    requestAnimationFrame(()=>{
+      const editor=editorRef.current;
+      if(!editor||editor.value.slice(location.start,location.end)!==finding.quote)return;
+      editor.readOnly=true;setInspecting(true);
+      editor.focus({preventScroll:true});
+      editor.setSelectionRange(location.start,location.end);
+      editor.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+    });
+  }
   function changeText(value:string){
     setState(old=>withEditedContract(old,value));
     setUploadError('');
@@ -58,9 +78,16 @@ export function ContractWorkspace(){
         <div className="panel-head">
           <h2>合同文本</h2><span className="muted tiny">仅在浏览器内处理</span>
         </div>
-        <textarea className="contract-text" aria-label="需要审查的合同文本" spellCheck={false}
-          value={source.text} disabled={importing}
+        <textarea ref={editorRef} className="contract-text" aria-label="需要审查的合同文本" spellCheck={false}
+          value={source.text} disabled={importing} readOnly={inspecting}
+          onPointerDown={()=>setInspecting(false)} onBlur={()=>setInspecting(false)}
           onChange={e=>changeText(e.target.value)} placeholder="在这里粘贴脱敏后的合同文本…"/>
+        {current&&highlighted&&<div className="contract-match-preview" role="status">
+          <strong>风险对应原文 · 点击右侧风险可定位并选中左侧正文{inspecting?'（定位中为只读，点击正文即可继续编辑）':''}</strong>
+          <p>{source.text.slice(highlighted.snippetStart,highlighted.start)}<mark>{source.text.slice(highlighted.start,highlighted.end)}</mark>{source.text.slice(highlighted.end,highlighted.snippetEnd)}</p>
+          <small>仅突出当前文本版本的精确规则命中片段；不是整条款法律效力判断。</small>
+        </div>}
+        {current&&!highlighted&&<p className="muted tiny">当前选中项目是全文缺失检查或无法核验的匹配结果，没有可高亮的具体原文。</p>}
         <div className="contract-actions">
           <label htmlFor="contract-document-scope" className="muted tiny">提供的合同材料范围</label>
           <select id="contract-document-scope" aria-label="提供的合同材料范围"
@@ -124,7 +151,7 @@ export function ContractWorkspace(){
               <div className="findings-list">
                 {findings.map(f=><button key={f.id}
                   className={'finding finding-enter '+(current?.id===f.id?'finding-active':'')} style={{animationDelay:`${Math.min(findings.indexOf(f),8)*45}ms`}}
-                  onClick={()=>setState(old=>selectReviewFinding(old,f.id))}>
+                  onClick={()=>focusFinding(f)}>
                   <span className={'risk-line risk-'+f.severity}/>
                   <span className="grow"><strong>{f.title}</strong>
                     <small>{f.quote?'“'+f.quote.slice(0,44)+(f.quote.length>44?'…':'')+'”':'文本未检测到明确约定'}</small>
