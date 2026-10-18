@@ -39,5 +39,16 @@ export const CONCEPT_SOURCE_CANDIDATES: Readonly<Record<string, readonly string[
   burden:[],
   rules:['source:cn:civil-code:465'],
   defences:[],
-  outcome:['source:cn:evidence-rules:90']
+  outcome:['source:cn:evidence-rules:90'],
+  'contract-formation':[],
+  'contract-effect':[],
+  'contract-performance':['source:cn:civil-code:465'],
+  'contract-breach':['source:cn:civil-code:577'],
+  'contract-termination':[],
+  'evidence-authenticity':['source:cn:evidence-rules:87'],
+  'evidence-lawfulness':['source:cn:evidence-rules:87'],
+  'evidence-relevance':['source:cn:evidence-rules:87'],
+  'evidence-electronic':['source:cn:evidence-rules:93'],
+  'claims-elements':[],
+  'claims-defences':[]
 };
