@@ -5,15 +5,18 @@ import {MAX_PAGE_CHARS,MAX_PAGES,MAX_TOTAL_CHARS,type SourcePassage} from '../..
 GlobalWorkerOptions.workerSrc=workerSrc;
 import { MAX_PDF_BYTES } from './pdfLimits';
 export type ExtractedPDF={fileName:string;totalPages:number;passages:SourcePassage[];sampledCharacters:number};
-export async function extractPdfPages(file:File):Promise<ExtractedPDF>{
+export type PdfReadProgress={page:number;totalPages:number};
+export async function extractPdfPages(file:File,onProgress?:(progress:PdfReadProgress)=>void):Promise<ExtractedPDF>{
   if(!/\.pdf$/i.test(file.name))throw new Error('请选择 PDF 格式的文献。');
   if(file.size===0||file.size>MAX_PDF_BYTES)throw new Error('PDF 文件大小必须在 8 MB 以内。');
   const data=new Uint8Array(await file.arrayBuffer());
   const task=getDocument({data,useSystemFonts:true});
   const doc=await task.promise;
   const passages:SourcePassage[]=[];let total=0;
+  const pagesToRead=Math.min(doc.numPages,MAX_PAGES);
+  onProgress?.({page:0,totalPages:pagesToRead});
   try{
-    for(let p=1;p<=Math.min(doc.numPages,MAX_PAGES);p++){
+    for(let p=1;p<=pagesToRead;p++){
       const page=await doc.getPage(p);
       const text=await page.getTextContent();
       const content=text.items.map(item=>'str' in item && typeof item.str==='string'?item.str:'')
@@ -23,6 +26,7 @@ export async function extractPdfPages(file:File):Promise<ExtractedPDF>{
         total+=content.length;
       }
       page.cleanup();
+      onProgress?.({page:p,totalPages:pagesToRead});
     }
   }finally{await doc.destroy();}
   if(total<180)throw new Error('可提取文字不足。该文献可能是扫描版或加密 PDF，目前需要先做 OCR。');
