@@ -13,6 +13,7 @@ import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type Timel
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 import { PaperWorkspace } from './components/PaperWorkspace';
 import { Seal } from './components/Seal';
+import { motionLayer } from './lib/motionPlan';
 
 type ModuleId = 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'paper' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
 type ToolId = Exclude<ModuleId, 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit'>;
@@ -256,18 +257,30 @@ export default function App(){
   const [menuOpen,setMenuOpen] = useState(false);
   const pageRef=useRef(page);
   pageRef.current=page;
-  useEffect(()=>{function onHashChange(){setPage(getHashPage());}window.addEventListener('hashchange',onHashChange);return()=>window.removeEventListener('hashchange',onHashChange);},[]);
-  function navigate(id:ModuleId){
-    if(pageRef.current===id){setMenuOpen(false);return;}
-    const move=()=>{pageRef.current=id;window.location.hash=id;setPage(id);setMenuOpen(false);};
+  // Apply the same transition to sidebar navigation and browser Back/Forward.
+  // The hashchange produced by navigate() becomes a no-op after pageRef is updated.
+  function changePage(next:ModuleId,updateHash:boolean){
+    if(pageRef.current===next){setMenuOpen(false);return;}
+    const move=()=>{
+      if(updateHash)window.location.hash=next;
+      pageRef.current=next;
+      flushSync(()=>{setPage(next);setMenuOpen(false);});
+      window.scrollTo({top:0,behavior:'auto'});
+    };
     const transitionDocument=document as Document & {startViewTransition?: (update:()=>void)=>{finished:Promise<void>}};
-    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&transitionDocument.startViewTransition){
-      transitionDocument.startViewTransition(()=>flushSync(move));
+    if(motionAllowed()&&transitionDocument.startViewTransition){
+      transitionDocument.startViewTransition(move);
     }else move();
-    window.scrollTo({top:0,behavior:'auto'});
   }
+  useEffect(()=>{
+    function onHashChange(){changePage(getHashPage(),false);}
+    window.addEventListener('hashchange',onHashChange);
+    return()=>window.removeEventListener('hashchange',onHashChange);
+  },[]);
+  function navigate(id:ModuleId){changePage(id,true);}
   const pageLabels: Partial<Record<ModuleId,string>> = {home:'选择工作台',learn:'学生版',practice:'专业版',litigation:'诉讼业务',nonlit:'非诉业务'};
   const title=pageLabels[page]??MODULES.find(m=>m.id===page)?.label??'工作空间';
+  const layer=motionLayer(page);
   function navItem(id:ModuleId, label:string, Icon:ModuleIcon){
     return <button key={id} className={`nav-item ${page===id?'nav-active':''}`} aria-current={page===id?'page':undefined} onClick={()=>navigate(id)}><Icon size={18}/><span>{label}</span></button>;
   }
@@ -293,7 +306,7 @@ export default function App(){
     <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2.1 · LOCAL DEMONSTRATION</span></div></aside>
     {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地保存 · 文献检索联网</span></div></header>
-      <main key={page} className="content content-enter" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractWorkspace/>}</main>
+      <main key={page} className={`content content-enter motion-${layer}`} id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractWorkspace/>}</main>
       <footer className="footer"><span>LAWLAB · LEARN THE LAW. PRACTICE THE LAW.</span><span>教学与流程演示 · 不构成法律意见</span></footer>
     </div>
   </div>;
