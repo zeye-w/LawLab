@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Check, CircleHelp, GitBranch, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Check, CircleHelp, ExternalLink, GitBranch, RotateCcw, Sparkles } from 'lucide-react';
 import { KNOWLEDGE_NODES, STUDY_CARDS, type StudyTopic } from '../data/study';
 import { linkedConceptIds } from '../lib/relationshipMaps';
+import { getConcept, getConceptSources } from '../content/registry';
 import { initialKnowledgeView, KNOWLEDGE_VIEW_KEY, type KnowledgeView } from '../lib/knowledgeView';
 import { KnowledgeNetwork } from './KnowledgeNetwork';
 
@@ -99,6 +100,8 @@ export function KnowledgeGraph() {
   const current = KNOWLEDGE_NODES.find(node=>node.id===selected) || KNOWLEDGE_NODES[0];
   const linked=linkedConceptIds(current.id);
   const related = KNOWLEDGE_NODES.filter(node=>node.id!==current.id&&linked.has(node.id));
+  const concept = getConcept(current.id);
+  const candidateAuthorities = getConceptSources(current.id);
   return <div>
     <div className="page-heading"><div><div className="eyebrow">LAWLAB LEARN / CONCEPT CONNECTIONS</div><h1>法律知识图谱</h1><p>从法律关系出发，点击概念节点，观察请求权、待证事实、证据及抗辩之间的联系。</p></div><span className="pill pill-green">互动概念地图</span></div>
     <section className="panel knowledge-panel">
@@ -119,6 +122,21 @@ export function KnowledgeGraph() {
       <section className="panel"><div className="eyebrow">SELECTED CONCEPT</div><h2 className="knowledge-title">{current.title}</h2><p>{current.summary}</p><div className="knowledge-question"><Sparkles size={17}/><div><strong>思考问题</strong><p>{current.question}</p></div></div></section>
       <section className="panel"><div className="panel-head"><h2>相关概念</h2><span className="muted tiny">{related.length} 个关联</span></div><div className="related-list">{related.map(node=><button key={node.id} type="button" className="related-item" onClick={()=>setSelected(node.id)}><span>{node.title}</span><ArrowRight size={15}/></button>)}</div></section>
     </div>
+    <section className="panel knowledge-authorities" aria-label="法律概念关联来源">
+      <div className="panel-head">
+        <div><div className="eyebrow">SOURCE TRACEABILITY / 法律依据</div><h2>候选法律依据</h2></div>
+        <span className="muted tiny">{candidateAuthorities.length} 条来源</span>
+      </div>
+      <p className="knowledge-authority-context">概念 ID：<code>{concept?.id ?? current.id}</code> · 中国法 · 目前尚未经人工完成条文版本及适用性核验。</p>
+      {candidateAuthorities.length>0
+        ?<ul className="knowledge-authority-list">{candidateAuthorities.map(source=><li key={source.id}>
+          <div><strong>{source.title}</strong><span className="knowledge-authority-status">{source.editorial.status==='verified'?'人工已核验':'待人工核验'}</span></div>
+          <p>{source.locator ?? '待补充具体条款'} · {source.issuer} · 效力状态{source.validity==='unknown'?'待核验':source.validity==='in-force'?'已标记现行有效':'已标记失效'}</p>
+          <a href={source.url} target="_blank" rel="noopener noreferrer">查看官方发布页面 <ExternalLink size={13}/></a>
+        </li>)}</ul>
+        :<p className="knowledge-authority-empty">此概念尚未录入候选法律依据，不能据此判断不存在适用法律。</p>}
+      <p className="knowledge-authority-warning">这些链接只供查阅，不代表该条文直接支持本概念的全部解释，也不意味着已核查其现行效力、修订和个案适用条件。</p>
+    </section>
     <div className="notice"><CircleHelp size={17}/><div>这是用于理解知识结构的教学概念图，不是完整法律规范体系，也不提供具体案件法律结论。</div></div>
   </div>;
 }
