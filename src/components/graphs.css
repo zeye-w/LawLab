@@ -20,7 +20,7 @@
 .knowledge-svg-muted{opacity:.88;}
 .knowledge-svg-muted rect{fill:#fbfcfa!important;stroke:#d7e4db;}
 .knowledge-svg-muted .knowledge-svg-label{fill:#385e51;}
-.knowledge-svg-muted .knowledge-svg-category{fill:#526e61!important;}
+.knowledge-svg-muted .knowledge-svg-category{fill:#405d50!important;}
 @media(prefers-contrast:more){
   .knowledge-svg-muted{opacity:1;}
   .knowledge-svg-muted rect{stroke:#577669;}
