@@ -98,12 +98,12 @@ test('GBK-encoded TXT files from Chinese Windows are imported with a warning',as
 
 test('PDF wrapped lines preserve indented and hierarchical clause headers',()=>{
   const cases=[
-    ['第一条 费用\\n1.1 付款条件：三十日内支付','第一条 费用\\n1.1 付款条件：三十日内支付'],
-    ['第一条 费用\\n  第二条 履行期限','第一条 费用\\n  第二条 履行期限'],
-    ['第一条 费用\\n1.1.2 支付方式','第一条 费用\\n1.1.2 支付方式'],
-    ['第一条 费用\\n  （二）结算规则','第一条 费用\\n  （二）结算规则'],
-    ['第一条 费用\\n    2、履约条件','第一条 费用\\n    2、履约条件'],
-    ['甲方可随时解除\\n本合同','甲方可随时解除本合同']
+    ['第一条 费用\n1.1 付款条件：三十日内支付','第一条 费用\n1.1 付款条件：三十日内支付'],
+    ['第一条 费用\n  第二条 履行期限','第一条 费用\n  第二条 履行期限'],
+    ['第一条 费用\n1.1.2 支付方式','第一条 费用\n1.1.2 支付方式'],
+    ['第一条 费用\n  （二）结算规则','第一条 费用\n  （二）结算规则'],
+    ['第一条 费用\n    2、履约条件','第一条 费用\n    2、履约条件'],
+    ['甲方可随时解除\n本合同','甲方可随时解除本合同']
   ];
   for(const [input,expected] of cases)assert.equal(joinPdfSoftWraps(input),expected);
 });
