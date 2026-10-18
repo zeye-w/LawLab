@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "node --experimental-strip-types --test tests/contractRules.test.ts tests/study.test.ts tests/paper.test.ts tests/research.test.ts tests/ai-analysis.test.ts tests/contractImport.test.ts tests/contractCore.test.ts tests/graphAndRiskLocation.test.ts tests/accessibilityUI.test.ts tests/artGraph.test.ts",
+    "test": "node --experimental-strip-types --test tests/contractRules.test.ts tests/study.test.ts tests/paper.test.ts tests/research.test.ts tests/ai-analysis.test.ts tests/contractImport.test.ts tests/contractCore.test.ts tests/graphAndRiskLocation.test.ts tests/accessibilityUI.test.ts tests/artGraph.test.ts tests/motionLayers.test.ts",
     "dev:worker": "wrangler dev",
     "deploy:worker": "npm run build && wrangler deploy"
   },
