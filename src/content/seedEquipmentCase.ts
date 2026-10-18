@@ -4,7 +4,7 @@ export const EQUIPMENT_CASE_KEY = 'case:cn:equipment-sale-demo-001' as const;
 export const CASE_SEED = {
   title:'设备采购合同履行争议（虚构教学案例）',
   synopsis:'甲公司（买方）与乙公司（卖方）围绕设备交付期限、20,000 元预付款以及聊天沟通中是否达成延期合意发生争议。双方说法均尚待证明；该资料包不代表真实案件或法院裁判。',
-  parties:['甲公司（买方、教学示例）','乙公司（卖方、教学示例）'],
+  parties:['甲公司（买方）','乙公司（卖方）'],
   evidence:[
     {id:'contract',title:'设备买卖合同（教学摘录）',type:'书证',purpose:'支持合同主体、价款及约定交付日的主张',caveat:'需核查原件、签章、完整条款及后续变更。'},
     {id:'transfer',title:'预付款转账回单（教学摘录）',type:'电子数据 / 书面记录',purpose:'可能支持买方向指定账户支付 20,000 元的主张',caveat:'需要银行原始凭证、收款账户身份及交易对应关系。'},
