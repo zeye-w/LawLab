@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, CircleHelp, ExternalLink, GitBranch, RotateCcw, Sparkles } from 'lucide-react';
 import { KNOWLEDGE_NODES, STUDY_CARDS, type StudyTopic } from '../data/study';
 import { linkedConceptIds } from '../lib/relationshipMaps';
-import { getConcept, getConceptSources } from '../content/registry';
+import { getConcept, getConceptChildren, getConceptSources, knowledgeBranchNodes } from '../content/registry';
 import { initialKnowledgeView, KNOWLEDGE_VIEW_KEY, type KnowledgeView } from '../lib/knowledgeView';
 import { KnowledgeNetwork } from './KnowledgeNetwork';
 
@@ -92,14 +92,19 @@ function readKnowledgeView(): KnowledgeView {
 }
 export function KnowledgeGraph() {
   const [selected, setSelected] = useState('relationship');
+  const [branch, setBranch] = useState<string | null>(null);
   const [view, setView] = useState<KnowledgeView>(readKnowledgeView);
+  const concepts = useMemo(()=>branch ? knowledgeBranchNodes(branch) : KNOWLEDGE_NODES,[branch]);
+  const enterBranch=(id:string)=>{setSelected(id);setBranch(id);};
+  const leaveBranch=()=>{if(branch)setSelected(branch);setBranch(null);};
   const chooseView = (next: KnowledgeView) => {
     setView(next);
     try { localStorage.setItem(KNOWLEDGE_VIEW_KEY, next); } catch { /* unavailable */ }
   };
-  const current = KNOWLEDGE_NODES.find(node=>node.id===selected) || KNOWLEDGE_NODES[0];
-  const linked=linkedConceptIds(current.id);
-  const related = KNOWLEDGE_NODES.filter(node=>node.id!==current.id&&linked.has(node.id));
+  const current = concepts.find(node=>node.id===selected) || concepts[0];
+  const linked=linkedConceptIds(current.id,concepts);
+  const related = concepts.filter(node=>node.id!==current.id&&linked.has(node.id));
+  const children = branch ? [] : getConceptChildren(current.id);
   const concept = getConcept(current.id);
   const candidateAuthorities = getConceptSources(current.id);
   return <div>
@@ -112,14 +117,22 @@ export function KnowledgeGraph() {
           <button type="button" aria-pressed={view==='3d'} onClick={()=>chooseView('3d')}>3D 空间</button>
         </div>
       </div>
+      {branch && <div className="knowledge-branch-nav" aria-label="知识图谱层级导航">
+        <button type="button" onClick={leaveBranch}>← 返回全部概念</button>
+        <span>总览 / {getConcept(branch)?.title ?? '子概念'}</span>
+      </div>}
       {view==='3d'
         ?<Suspense fallback={<div className="kg3d-loading" role="status">正在加载三维概念网络…</div>}>
-          <KnowledgeNetwork3D selected={selected} onSelect={setSelected}/>
+          <KnowledgeNetwork3D selected={selected} onSelect={setSelected} concepts={concepts}/>
         </Suspense>
-        :<KnowledgeNetwork selected={selected} onSelect={setSelected}/>}
+        :<KnowledgeNetwork selected={selected} onSelect={setSelected} concepts={concepts}/>}
     </section>
     <div className="layout-split knowledge-detail">
-      <section className="panel"><div className="eyebrow">SELECTED CONCEPT</div><h2 className="knowledge-title">{current.title}</h2><p>{current.summary}</p><div className="knowledge-question"><Sparkles size={17}/><div><strong>思考问题</strong><p>{current.question}</p></div></div></section>
+      <section className="panel"><div className="eyebrow">SELECTED CONCEPT</div><h2 className="knowledge-title">{current.title}</h2><p>{current.summary}</p><div className="knowledge-question"><Sparkles size={17}/><div><strong>思考问题</strong><p>{current.question}</p></div></div>
+        {children.length>0 && <button type="button" className="btn outline knowledge-expand" onClick={()=>enterBranch(current.id)}>
+          展开 {children.length} 个二级概念 <ArrowRight size={15}/>
+        </button>}
+      </section>
       <section className="panel"><div className="panel-head"><h2>相关概念</h2><span className="muted tiny">{related.length} 个关联</span></div><div className="related-list">{related.map(node=><button key={node.id} type="button" className="related-item" onClick={()=>setSelected(node.id)}><span>{node.title}</span><ArrowRight size={15}/></button>)}</div></section>
     </div>
     <section className="panel knowledge-authorities" aria-label="法律概念关联来源">
