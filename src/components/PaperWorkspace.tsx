@@ -2,6 +2,7 @@ import { useEffect,useState,type ChangeEvent } from 'react';
 import './paper.css';
 import { LiteratureSearch,ArgumentWorkbench } from './ResearchWorkbench';
 import { AIAnalysis } from './AIAnalysis';
+import { Seal } from './Seal';
 import { ArrowDown,ArrowDownToLine,ArrowLeft,ArrowUp,BookOpen,CheckCircle2,FilePlus2,FileText,Plus,RotateCcw,ShieldCheck,Trash2,Upload } from 'lucide-react';
 import {
   PAPER_STORAGE_KEY, PAPER_RECOVERY_KEY, PAPER_MODES, REFERENCE_TYPES, MAX_SECTIONS, MAX_REFERENCES, MAX_SECTION_TEXT,
@@ -52,6 +53,12 @@ export function PaperWorkspace() {
     catch { setSaveError('浏览器本地存储失败。请立即导出 JSON 备份，以免丢失内容。'); }
   },[paper,lockSave]);
   const checks=checkPaper(paper), completed=checks.filter(x=>x.ok).length;
+  const verifiedCount=paper.references.filter(r=>r.verified).length;
+  const allVerified=paper.references.length>0&&verifiedCount===paper.references.length;
+  // Stamp only when the last source gets verified in this session, not on every visit.
+  const [verifiedAt,setVerifiedAt]=useState(0);
+  const [wasAllVerified,setWasAllVerified]=useState(allVerified);
+  if(allVerified!==wasAllVerified){setWasAllVerified(allVerified);if(allVerified)setVerifiedAt(Date.now());}
   const active=paper.sections.find(s=>s.id===sectionId)??paper.sections[0];
   function updateField<K extends keyof Pick<PaperProject,'title'|'question'|'argument'|'jurisdiction'>>(field:K,value:PaperProject[K]){
     setPaper(old=>({...old,[field]:value}));
@@ -136,7 +143,7 @@ export function PaperWorkspace() {
     <div className="paper-overview" aria-label="写作进度">
       <div><span>论文正文</span><strong>{countPaperCharacters(paper).toLocaleString('zh-CN')}</strong><small>字符（不含空白）</small></div>
       <div><span>研究准备</span><strong>{completed} / {checks.length}</strong><small>检查项已完成</small></div>
-      <div><span>参考资料</span><strong>{paper.references.filter(r=>r.verified).length} / {paper.references.length}</strong><small>由作者标记已核验</small></div>
+      <div><span>参考资料</span><span className="seal-slot"><strong>{verifiedCount} / {paper.references.length}</strong>{allVerified&&<Seal chars={['已','核','验']} label="参考资料已全部核验" size={34} stampKey={verifiedAt||undefined}/>}</span><small>由作者标记已核验</small></div>
     </div>
     <div className="paper-toolbar">
       <div className="paper-tabs" role="group" aria-label="论文写作模块">{NAV.map(([id,label])=><button key={id} type="button" aria-pressed={tab===id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
