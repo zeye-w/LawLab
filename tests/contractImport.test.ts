@@ -5,7 +5,7 @@ import {File as NodeFile} from 'node:buffer';
 import {fileURLToPath} from 'node:url';
 import {reviewContract} from '../src/lib/contractRules.ts';
 import {
-  contractFormat,validContractHeader,normalizeContractText,normalizePdfText,joinPdfSoftWraps,validatedContractText,
+  contractFormat,validContractHeader,normalizeContractText,normalizePdfText,joinPdfSoftWraps,decodeContractTxt,validatedContractText,
   inspectDocxZip,importContractFile,MAX_CONTRACT_FILE_BYTES,MAX_CONTRACT_TEXT_CHARS
 } from '../src/lib/contractImport.ts';
 import readLegacyWord from '../src/lib/vendor/docToText.js';
@@ -94,4 +94,34 @@ test('GBK-encoded TXT files from Chinese Windows are imported with a warning',as
   assert.equal(imported.text,sample);
   assert.ok(imported.warnings.some(w=>w.includes('GBK')));
   assert.ok(reviewContract(imported.text).some(f=>f.id==='termination'));
+});
+
+test('PDF wrapped lines preserve indented and hierarchical clause headers',()=>{
+  const cases=[
+    ['第一条 费用\\n1.1 付款条件：三十日内支付','第一条 费用\\n1.1 付款条件：三十日内支付'],
+    ['第一条 费用\\n  第二条 履行期限','第一条 费用\\n  第二条 履行期限'],
+    ['第一条 费用\\n1.1.2 支付方式','第一条 费用\\n1.1.2 支付方式'],
+    ['第一条 费用\\n  （二）结算规则','第一条 费用\\n  （二）结算规则'],
+    ['第一条 费用\\n    2、履约条件','第一条 费用\\n    2、履约条件'],
+    ['甲方可随时解除\\n本合同','甲方可随时解除本合同']
+  ];
+  for(const [input,expected] of cases)assert.equal(joinPdfSoftWraps(input),expected);
+});
+test('GB18030 fallback rejects invalid bytes and suspicious binary content instead of silently reviewing',async()=>{
+  const malformed=Buffer.from([0x81]); // incomplete multibyte sequence
+  assert.throws(()=>decodeContractTxt(malformed),/编码/);
+  await assert.rejects(importContractFile(browserFile(malformed,'invalid.txt')),/编码/);
+  const binary=Buffer.from([0xff,0x00,0xff]); // apparent binary / control bytes
+  assert.throws(()=>decodeContractTxt(binary),/编码|不可信/);
+  const codepoint=Buffer.from([0x81,0x30,0x81,0x30]); // well-formed GB18030 but not plausible Chinese contract text
+  assert.throws(()=>decodeContractTxt(codepoint),/不可信/);
+  const ascii=decodeContractTxt(Buffer.from('Party A pays Party B.'));
+  assert.equal(ascii.text,'Party A pays Party B.');
+  assert.deepEqual(ascii.warnings,[]);
+});
+test('GB18030 recovery always displays manual verification warning',()=>{
+  const bytes=Buffer.from(GBK_SAMPLE_HEX,'hex');
+  const decoded=decodeContractTxt(bytes);
+  assert.ok(decoded.text.includes('甲方'));
+  assert.ok(decoded.warnings.some(x=>x.includes('人工核对')));
 });
