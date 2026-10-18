@@ -29,7 +29,7 @@ test('one fictional case dossier owns all documents, parties, evidence and timel
   assert.ok(c.links.every(l=>l.review==='pending'&&l.relation==='candidate-support'));
   assert.ok(c.documents.every(d=>d.excerpt.length>12&&d.context.length>12));
   assert.ok(c.positions.every(p=>p.disputedFactIds.length>0));
-  assert.ok(c.documents.some(d=>d.context.includes('不') && d.excerpt.includes('下周')));
+  assert.ok(c.documents.some(d=>d.context.includes('否认') && d.excerpt.includes('下周')));
 });
 
 test('existing evidence cards and default timeline have matching canonical legacy IDs and values',()=>{
