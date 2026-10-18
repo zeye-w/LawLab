@@ -4,6 +4,9 @@ export type ContractFinding = {
   title: string;
   severity: Severity;
   quote: string | null;
+  /** Exact UTF-16 half-open source text offsets for quoted findings. Never guessed from UI. */
+  start?: number;
+  end?: number;
   reason: string;
   suggestion: string;
 };
@@ -44,11 +47,13 @@ const RULES: Array<Omit<ContractFinding, 'quote'> & { pattern: RegExp }> = [
 
 export function reviewContract(input: string): ContractFinding[] {
   const text = input.trim();
+  const leadingWhitespace = input.length-input.trimStart().length;
   if (!text) return [];
   const findings: ContractFinding[] = [];
   for (const { pattern, ...rule } of RULES) {
     const match = pattern.exec(text);
-    if (match) findings.push({ ...rule, quote: match[0] });
+    if (match) findings.push({ ...rule, quote: match[0],
+      start: leadingWhitespace+match.index, end: leadingWhitespace+match.index+match[0].length });
   }
   if (text.length >= 60 && !/(?:争议|纠纷).{0,24}(?:法院|仲裁|协商|管辖)|(?:法院|仲裁委员会|诉讼管辖)/.test(text)) {
     findings.push({
