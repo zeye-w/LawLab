@@ -25,6 +25,7 @@ export type LegalSource = {
 export type LegalConceptRecord = {
   id: string; // stable, never based on translated display titles
   legacyId?: string;
+  parentId?: string; // optional stable parent concept ID; separate from semantic relatedConceptIds
   title: string;
   category: string;
   jurisdiction: Jurisdiction;
