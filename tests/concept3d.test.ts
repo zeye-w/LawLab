@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { KNOWLEDGE_NODES } from '../src/data/study.ts';
 import { knowledgeEdges, linkedConceptIds } from '../src/lib/relationshipMaps.ts';
-import { buildConceptScene, DEFAULT_CAMERA, project3D, orbit, zoom, hitTest3D, CAMERA_BOUNDS, fitCamera, compactScene, placeLabels } from '../src/lib/concept3d.ts';
+import { buildConceptScene, DEFAULT_CAMERA, project3D, orbit, zoom, hitTest3D, CAMERA_BOUNDS, nodeRadius, fitCamera, compactScene, placeLabels } from '../src/lib/concept3d.ts';
 import { initialKnowledgeView } from '../src/lib/knowledgeView.ts';
 
 const points=buildConceptScene(KNOWLEDGE_NODES,knowledgeEdges());
@@ -82,11 +82,14 @@ test('the default camera fits every concept on phones and leaves desktop framing
   }
 });
 
-test('labels flip above their node instead of covering an already placed label',()=>{
-  const tops=placeLabels([{x:100,y:100,r:10,w:80,h:23},{x:120,y:104,r:10,w:80,h:23},{x:400,y:100,r:10,w:80,h:23}]);
-  assert.equal(tops[0],120);
-  assert.equal(tops[1],104-10-10-23);
-  assert.equal(tops[2],120);
+test('labels move above or beside their node instead of covering an already placed label',()=>{
+  const spots=placeLabels([{x:100,y:100,r:10,w:80,h:23},{x:120,y:104,r:10,w:80,h:23},{x:400,y:100,r:10,w:80,h:23}]);
+  assert.deepEqual(spots[0],{x:60,y:120});
+  assert.deepEqual(spots[1],{x:80,y:104-10-10-23});
+  assert.deepEqual(spots[2],{x:360,y:120});
+  // Below and above both taken: the label goes to the side.
+  const boxed=placeLabels([{x:100,y:110,r:4,w:80,h:23},{x:100,y:50,r:4,w:80,h:23},{x:100,y:100,r:4,w:80,h:23}]);
+  assert.deepEqual(boxed[2],{x:114,y:88.5});
 });
 
 test('3D labels do not rely on ctx.roundRect (Safari < 16, Firefox < 112)',()=>{
@@ -109,4 +112,12 @@ test('dragging moves the near side of the scene with the pointer, and no floor g
   assert.ok(at(orbit(DEFAULT_CAMERA,0,-40)).y<at(DEFAULT_CAMERA).y,'drag up moves the near side up');
   assert.ok(at(orbit(DEFAULT_CAMERA,40,0)).x>at(DEFAULT_CAMERA).x,'drag right moves the near side right');
   assert.doesNotMatch(ui,/grid/i);
+});
+
+test('3D concepts are small flat dots without a specular highlight',()=>{
+  assert.ok(nodeRadius(6,1)<=11,'busiest node stays small');
+  assert.ok(nodeRadius(0,.2)>=3.5,'far nodes stay visible');
+  assert.doesNotMatch(ui,/createRadialGradient/);
+  const node=points.find(n=>n.id==='contract')!, p=project3D(node,DEFAULT_CAMERA,900,460);
+  assert.equal(hitTest3D(points,DEFAULT_CAMERA,900,460,p.x+14,p.y),node.id,'click target stays generous');
 });

@@ -92,6 +92,11 @@ export function project3D(p: Point3, camera: OrbitCamera, width: number, height:
     scale, depth, visible };
 }
 
+/** On-screen dot radius; better-connected concepts are slightly larger. */
+export function nodeRadius(degree: number, scale: number): number {
+  return Math.max(3.5, (4.5 + degree * 1.05) * scale);
+}
+
 /** Pick the nearest visible node in screen space, preferring foreground on ties. */
 export function hitTest3D(
   concepts: readonly SceneConcept[], camera: OrbitCamera, width: number, height: number,
@@ -99,7 +104,7 @@ export function hitTest3D(
 ): string | null {
   const hits = concepts.map(n => {
     const p = project3D(n, camera, width, height);
-    const radius = Math.max(18, (7 + n.degree * 1.65) * p.scale + 7);
+    const radius = Math.max(18, nodeRadius(n.degree, p.scale) + 10); // generous target for small dots
     return { id: n.id, depth: p.depth, distance: Math.hypot(p.x - x, p.y - y), radius, visible: p.visible };
   }).filter(h => h.visible && h.distance <= h.radius);
   hits.sort((a, b) => a.distance / a.radius - b.distance / b.radius || a.depth - b.depth);
@@ -109,18 +114,30 @@ export function hitTest3D(
 export type LabelBox = { x: number; y: number; r: number; w: number; h: number };
 const LABEL_GAP = 10;
 
-/** Put each label under its node, or above it when that spot is already taken.
- * Items are placed in priority order (nearest / selected first); returns each box's top edge. */
-export function placeLabels(items: readonly LabelBox[]): number[] {
-  const taken: { x0: number; x1: number; y0: number; y1: number }[] = [];
-  const hits = (b: { x0: number; x1: number; y0: number; y1: number }) =>
-    taken.some(t => b.x0 < t.x1 && t.x0 < b.x1 && b.y0 < t.y1 && t.y0 < b.y1);
+/** Put each label under its node, else above, right or left of it — whichever spot is free,
+ * or overlaps least. Items are placed in priority order (nearest / selected first). */
+export function placeLabels(items: readonly LabelBox[]): { x: number; y: number }[] {
+  type Rect = { x0: number; x1: number; y0: number; y1: number };
+  const taken: Rect[] = [];
+  const overlap = (b: Rect) => taken.reduce((sum, t) =>
+    sum + Math.max(0, Math.min(b.x1, t.x1) - Math.max(b.x0, t.x0)) * Math.max(0, Math.min(b.y1, t.y1) - Math.max(b.y0, t.y0)), 0);
   return items.map(it => {
-    const box = (top: number) => ({ x0: it.x - it.w / 2, x1: it.x + it.w / 2, y0: top, y1: top + it.h });
-    const below = box(it.y + it.r + LABEL_GAP), above = box(it.y - it.r - LABEL_GAP - it.h);
-    const chosen = hits(below) && !hits(above) ? above : below;
-    taken.push(chosen);
-    return chosen.y0;
+    const at = (left: number, top: number): Rect => ({ x0: left, x1: left + it.w, y0: top, y1: top + it.h });
+    const side = it.y - it.h / 2;
+    const spots = [
+      at(it.x - it.w / 2, it.y + it.r + LABEL_GAP),
+      at(it.x - it.w / 2, it.y - it.r - LABEL_GAP - it.h),
+      at(it.x + it.r + LABEL_GAP, side),
+      at(it.x - it.r - LABEL_GAP - it.w, side),
+    ];
+    let best = spots[0], bestOverlap = overlap(best);
+    for (const spot of spots.slice(1)) {
+      if (bestOverlap === 0) break;
+      const o = overlap(spot);
+      if (o < bestOverlap) { best = spot; bestOverlap = o; }
+    }
+    taken.push(best);
+    return { x: best.x0, y: best.y0 };
   });
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { KNOWLEDGE_NODES } from '../data/study';
 import { knowledgeEdges, linkedConceptIds } from '../lib/relationshipMaps';
-import { buildConceptScene, CAMERA_BOUNDS, COMPACT_SCENE, compactScene, DEFAULT_CAMERA, fitCamera, hitTest3D,
+import { buildConceptScene, CAMERA_BOUNDS, nodeRadius, COMPACT_SCENE, compactScene, DEFAULT_CAMERA, fitCamera, hitTest3D,
   orbit, placeLabels, project3D, zoom, type OrbitCamera } from '../lib/concept3d';
 import './graphs.css';
 
@@ -80,16 +80,16 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       const font = getComputedStyle(stage!).fontFamily || 'sans-serif';
       const fontSize = width < 480 ? 11 : 12;
       const projected = scene.map(n => ({ ...n, p:project3D(n,camera,width,height),
-        r:0, labelW:0, labelY:0, title:META.get(n.id)?.title ?? n.id }))
+        r:0, labelW:0, labelX:0, labelY:0, title:META.get(n.id)?.title ?? n.id }))
         .filter(n=>n.p.visible).sort((a,b)=>b.p.depth-a.p.depth);
       for (const n of projected) {
-        n.r = Math.max(5,(7+n.degree*1.65)*n.p.scale);
+        n.r = nodeRadius(n.degree,n.p.scale);
         ctx!.font = `700 ${fontSize}px ${font}`;
         n.labelW = Math.ceil(ctx!.measureText(n.title).width)+18;
       }
-      // Labels claim space selected-first, then nearest-first; a taken spot flips the label above.
+      // Labels claim space selected-first, then nearest-first; a taken spot moves the label above or aside.
       const order = [...projected].sort((a,b)=>Number(b.id===selectedRef.current)-Number(a.id===selectedRef.current)||a.p.depth-b.p.depth);
-      placeLabels(order.map(n=>({x:n.p.x,y:n.p.y,r:n.r,w:n.labelW,h:LABEL_H}))).forEach((top,i)=>{order[i].labelY=top;});
+      placeLabels(order.map(n=>({x:n.p.x,y:n.p.y,r:n.r,w:n.labelW,h:LABEL_H}))).forEach((spot,i)=>{order[i].labelX=spot.x;order[i].labelY=spot.y;});
       for (const n of projected) {
         const {x,y} = n.p, r = n.r, chosen = n.id===selectedRef.current;
         const illuminated = linked.has(n.id) || strict, focused = n.id===active;
@@ -99,24 +99,21 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
           ctx!.beginPath(); ctx!.arc(x,y,r+8,0,Math.PI*2);
           ctx!.fillStyle = 'rgba(78,148,137,0.13)'; ctx!.fill();
         }
-        const gradient = ctx!.createRadialGradient(x-r*.35,y-r*.42,r*.08,x,y,r);
-        gradient.addColorStop(0,'#ffffff'); gradient.addColorStop(.22,color);
-        gradient.addColorStop(1,color);
         ctx!.beginPath(); ctx!.arc(x,y,r,0,Math.PI*2);
-        ctx!.fillStyle = gradient; ctx!.globalAlpha = illuminated?1:.32; ctx!.fill();
+        ctx!.fillStyle = color; ctx!.globalAlpha = illuminated?1:.32; ctx!.fill();
         if (chosen) {
           ctx!.beginPath();ctx!.arc(x,y,r+3.8,0,Math.PI*2);
           ctx!.strokeStyle='#315c4e';ctx!.lineWidth=2;ctx!.globalAlpha=1;ctx!.stroke();
         }
-        const title=n.title, labelW=n.labelW, ly=n.labelY;
+        const title=n.title, labelW=n.labelW, lx=n.labelX, ly=n.labelY;
         ctx!.font=`${chosen||focused?'700':'600'} ${fontSize}px ${font}`;
         ctx!.globalAlpha=chosen||illuminated?0.95:0.84;
         ctx!.fillStyle='#ffffff';
         ctx!.strokeStyle=chosen?'#9ec5b2':'#e0e9e2';
         ctx!.lineWidth=1;
-        roundedRect(ctx!,x-labelW/2,ly,labelW,LABEL_H,8);ctx!.fill();ctx!.stroke();
+        roundedRect(ctx!,lx,ly,labelW,LABEL_H,8);ctx!.fill();ctx!.stroke();
         ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.globalAlpha=1;
-        ctx!.fillStyle='#2f4a42';ctx!.fillText(title,x,ly+LABEL_H/2);
+        ctx!.fillStyle='#2f4a42';ctx!.fillText(title,lx+labelW/2,ly+LABEL_H/2);
       }
       ctx!.globalAlpha = 1;
     }
