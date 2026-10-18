@@ -30,9 +30,44 @@ export function normalizeContractText(text:string):string{
   // Strip null/control characters without destroying clause boundaries or tabs.
   return text.replace(/\u0000/g,'').replace(/\r\n?/g,'\n')
     .replace(/[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,'')
-    // PDF.js often splits Chinese words into individual text items.
-    .replace(/(?<=\p{Script=Han})[ \t]+(?=\p{Script=Han})/gu,'')
-    .replace(/[ \t]+\n/g,'').replace(/\n{4,}/g,'\n\n\n').trim();
+    .replace(/[ \t]+\n/g,'\n').replace(/\n{4,}/g,'\n\n\n').trim();
+}
+// A new line that starts like this begins a clause, party block or list item, so it must stay on its own line.
+const CLAUSE_START=/^(?:第[一二三四五六七八九十百千零〇两\d]+[条章节款项部分]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十\d]+[）)]|\d+(?:\.\d+)+(?!\d)(?=[\s、．.:：)）]|$)|\d+[、．.](?!\d)|[甲乙丙丁][方]?[：:]|附件|签署|签字|盖章|日期|(?:甲|乙|丙|丁)方(?:（|\(|：|:))/;
+// A line ending with one of these finished its sentence; anything else was wrapped by the PDF layout.
+const SENTENCE_END=/[。；;！!？?：:）)」』”"]$/;
+/** Rejoin lines that PDF layout broke mid-sentence; contract rules cannot match across a newline. */
+export function joinPdfSoftWraps(text:string):string{
+  const lines=text.split('\n'),out:string[]=[];
+  for(const line of lines){
+    const prev=out.length?out[out.length-1]:'';
+    if(prev&&line&&!SENTENCE_END.test(prev.trimEnd())&&!CLAUSE_START.test(line.trimStart())){
+      out[out.length-1]=prev+(/[A-Za-z0-9]$/.test(prev)&&/^[A-Za-z0-9]/.test(line)?' ':'')+line;
+    }else out.push(line);
+  }
+  return out.join('\n');
+}
+/** PDF.js often splits Chinese words into separate text items; only PDF text gets this treatment. */
+export function normalizePdfText(text:string):string{
+  return joinPdfSoftWraps(normalizeContractText(text).replace(/(?<=\p{Script=Han})[ \t]+(?=\p{Script=Han})/gu,''));
+}
+/** Decode a Chinese TXT file without guessing when the fallback bytes are malformed.
+ * GB18030 can decode many arbitrary byte combinations, so require plausible readable
+ * Chinese text, reject control/unknown code points, and surface a manual-check warning. */
+export function decodeContractTxt(bytes:Uint8Array):{text:string;warnings:string[]}{
+  let text:string;
+  let fallback=false;
+  try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}
+  catch{
+    try{text=new TextDecoder('gb18030',{fatal:true}).decode(bytes);fallback=true;}
+    catch{throw new Error('TXT 文本编码无效，无法可靠识别。请在文本编辑器中另存为 UTF-8 后重试。');}
+  }
+  // Binary files, UTF-16 without conversion, and undecodable glyphs must not be silently reviewed.
+  if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\ufffd]/u.test(text)||
+      (fallback && (!/[\p{Script=Han}]{2,}/u.test(text)||/[\u0378\u0379]/u.test(text)))){
+    throw new Error('TXT 文本包含不可信字符或编码异常。请转换成 UTF-8，检查正文后重新导入。');
+  }
+  return {text,warnings:fallback?['已尝试按 GBK/GB18030 解码。字符编码未能自动确认，请人工核对整个合同文本及原文件后再进行审查。']:[]};
 }
 export function validatedContractText(raw:string):string{
   const text=normalizeContractText(raw);
@@ -105,7 +140,7 @@ async function extractPdf(data:Uint8Array):Promise<{
       const data=await page.getTextContent();
       const segment=data.items.map(item=>'str' in item&&typeof item.str==='string'
         ?item.str+(('hasEOL' in item&&item.hasEOL)?'\n':' '):'').join('');
-      const text=normalizeContractText(segment);
+      const text=normalizePdfText(segment);
       if(text.length<8)blank.push(i);
       parts.push(text);extractedChars+=text.length;
       if(extractedChars+2*Math.max(0,parts.length-1)>MAX_CONTRACT_TEXT_CHARS){
@@ -135,7 +170,9 @@ export async function importContractFile(file:File):Promise<ContractImportResult
   const warnings:string[]=[];
   try{
     if(format==='txt'){
-      text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+      const decoded=decodeContractTxt(bytes);
+      text=decoded.text;warnings.push(...decoded.warnings);
+      if(decoded.warnings.length)integrity='needs-review';
     }else if(format==='doc'){
       const {default:readDoc}=await import('./vendor/docToText.js');
       const extracted=readDoc(bytes);
@@ -156,7 +193,7 @@ export async function importContractFile(file:File):Promise<ContractImportResult
       integrity=result.integrity;warnings.push(...result.warnings);
     }
   }catch(e){
-    if(e instanceof Error && /无法|超过|不支持|未找到|解压|结构|加密|OCR|过少|损坏|不完整|安全限制|错误/.test(e.message))throw e;
+    if(e instanceof Error && /无法|超过|不支持|未找到|解压|结构|加密|OCR|过少|损坏|不完整|安全限制|错误|编码|不可信/.test(e.message))throw e;
     throw new Error('文件正文解析失败，请确认文件未加密且包含可选择文字。');
   }
   const validated=validatedContractText(text);
