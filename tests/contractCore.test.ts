@@ -151,7 +151,7 @@ test('source text extraction completeness is distinct from completeness of suppl
 
 test('missing-clause warning is gated by explicit whole-document declaration and complete extraction',()=>{
   const start=initialContractWorkspace();
-  const text='双方约定交付和付款，确认验收程序并保留相关书面凭证。应当遵守诚实信用并及时履行各自的其他合同义务。';
+  const text='双方约定交付和付款，确认验收程序并保留相关书面凭证。应当遵守诚实信用并及时履行各自的其他合同义务。合作双方需按约定保存原始沟通记录和工作成果，及时确认服务项目的进度和质量。';
   const file:ContractImportResult={name:'contract.txt',format:'txt',text,
     integrity:'complete',warnings:[]};
   const unknown=withImportedContract(start,file);
