@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronRight, CircleHelp, FileSearch,
@@ -252,9 +253,9 @@ export default function App(){
     const move=()=>{pageRef.current=id;window.location.hash=id;setPage(id);setMenuOpen(false);};
     const transitionDocument=document as Document & {startViewTransition?: (update:()=>void)=>{finished:Promise<void>}};
     if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&transitionDocument.startViewTransition){
-      transitionDocument.startViewTransition(move);
+      transitionDocument.startViewTransition(()=>flushSync(move));
     }else move();
-    window.scrollTo({top:0,behavior:'instant'});
+    window.scrollTo({top:0,behavior:'auto'});
   }
   const pageLabels: Partial<Record<ModuleId,string>> = {home:'选择工作台',learn:'学生版',practice:'专业版',litigation:'诉讼业务',nonlit:'非诉业务'};
   const title=pageLabels[page]??MODULES.find(m=>m.id===page)?.label??'工作空间';
