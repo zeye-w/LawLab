@@ -20,6 +20,33 @@
 .kg-chip:hover {border-color:#9ebfaf;}
 .kg-chip[aria-pressed="true"] {background:#e5efe9;border-color:#5b9a86;color:#24403a;font-weight:700;}
 .knowledge-graph-caption {font-size:11px!important;color:#82948b!important;margin:9px 4px 2px!important;line-height:1.7;}
+/* Perspective graph mode: the familiar 2D map remains available one click away. */
+.knowledge-mode-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;}
+.knowledge-mode-bar .knowledge-guide{margin:0;min-width:0;}
+.knowledge-view-toggle{display:inline-flex;gap:3px;flex:none;border:1px solid #dee8e1;padding:3px;border-radius:10px;background:#f5f8f5;}
+.knowledge-view-toggle button{border:0;border-radius:7px;padding:7px 12px;background:transparent;color:#667f73;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;}
+.knowledge-view-toggle button[aria-pressed="true"]{background:white;color:#315f4e;box-shadow:0 1px 5px #345b4419;}
+.knowledge-view-toggle button:focus-visible{outline:2px solid #548f78;outline-offset:2px;}
+.kg3d-stage{--kg-ink:#2f4a42;--kg-core:#3f6f61;--kg-civil:#5f8f7d;--kg-evidence:#5b7f9e;--kg-method:#8a7398;
+  background:radial-gradient(ellipse at 48% 39%,#f4faf6 0%,#eff5f1 52%,#fafcf9 100%);}
+.kg3d-canvas{display:block;width:100%;height:460px;cursor:grab;touch-action:pan-y;}
+.kg3d-tools{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 18px);}
+.kg3d-tools button{background:#fffefcf0;min-width:35px;min-height:32px;}
+.kg3d-axis{position:absolute;left:14px;top:13px;pointer-events:none;color:#849d90;font-size:10px;letter-spacing:.15em;font-weight:760;}
+.kg3d-loading{min-height:370px;display:grid;place-items:center;color:#687d72;font-size:13px;}
+.knowledge-graph-3d .kg-node-list{margin-top:2px;}
+@media(max-width:640px){
+  .knowledge-mode-bar{align-items:stretch;flex-direction:column;}
+  .knowledge-view-toggle{align-self:flex-start;}
+  .kg3d-canvas{height:390px;}
+  .kg3d-tools{right:7px;top:8px;gap:4px;}
+  .kg3d-tools button{padding:3px 6px;min-width:29px;min-height:28px;}
+  .kg3d-axis{top:51px;font-size:9px;}
+  .kg3d-stage .kg-hint{font-size:10px!important;max-width:95%;}
+}
+@media(prefers-reduced-motion:reduce){
+  .knowledge-view-toggle button,.kg3d-tools button{transition:none!important;animation:none!important;}
+}
 .proof-network {border:1px solid #e1e9e4;border-radius:12px;background:#fbfdfb;padding:15px 12px;margin:18px 0;}
 .proof-network-head {display:flex;justify-content:space-between;padding:0 7%;font-size:11px;font-weight:720;color:#84988c;}
 .proof-network-svg {display:block;width:100%;height:auto;overflow:visible;}
