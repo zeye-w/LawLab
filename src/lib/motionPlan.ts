@@ -11,3 +11,13 @@ export function motionLayer(page:string):MotionLayer {
   if(COMPLEX_PAGES.has(page))return 'complex';
   return 'regular';
 }
+
+export const NATIVE_TRANSITIONS_CLASS='lawlab-native-transitions';
+type TransitionDocument={startViewTransition?:unknown;documentElement:{classList:{add(name:string):void}}};
+/** Mark native View Transition support on <html>. Call before the first render: if the class
+ * arrived later, the CSS fallback entrance would start and then be cut off, flashing a blank frame. */
+export function markNativeTransitions(doc:TransitionDocument):boolean {
+  const supported=typeof doc.startViewTransition==='function';
+  if(supported)doc.documentElement.classList.add(NATIVE_TRANSITIONS_CLASS);
+  return supported;
+}
