@@ -77,6 +77,7 @@ export function validateContent(data: LegalContentRegistry): ContentDiagnostic[]
     if(c.nature!=='fictional')fail('CASE_NATURE',base+'.nature','本期仅允许虚构演示案例');
     const facts=new Set(c.facts.map(f=>f.id));
     const evidence=new Set(c.evidence.map(e=>e.id));
+    const events=new Set(c.events.map(e=>e.id));
     for(const [j,f] of c.facts.entries()){
       const p=base+'.facts['+j+']';
       addId(f.id,p+'.id');nonempty(f.title,p+'.title');nonempty(f.question,p+'.question');
@@ -103,6 +104,30 @@ export function validateContent(data: LegalContentRegistry): ContentDiagnostic[]
       linkPairs.add(pair);
       if(link.review==='verified' && c.evidence.find(e=>e.id===link.evidenceId)?.authenticity!=='checked')
         fail('UNVERIFIED_EVIDENCE',p+'.review','来源尚未核查不可标为已核验');
+    }
+    for(const [j,position] of c.positions.entries()){
+      const p=base+'.positions['+j+']';
+      addId(position.id,p+'.id');
+      nonempty(position.party,p+'.party');nonempty(position.stance,p+'.stance');
+      if(!c.parties.includes(position.party))fail('UNKNOWN_PARTY',p+'.party','陈述主体未列于案例当事人');
+      for(const id of position.disputedFactIds)if(!facts.has(id))
+        fail('DANGLING_FACT',p+'.disputedFactIds',id);
+    }
+    for(const [j,doc] of c.documents.entries()){
+      const p=base+'.documents['+j+']';
+      addId(doc.id,p+'.id');
+      nonempty(doc.title,p+'.title');nonempty(doc.author,p+'.author');
+      nonempty(doc.excerpt,p+'.excerpt');nonempty(doc.context,p+'.context');
+      if(!dateOK(doc.date))fail('DATE',p+'.date','文书日期无效');
+      if(!doc.evidenceIds.length&&!doc.eventIds.length)
+        fail('UNLINKED_DOCUMENT',p,'文书必须明确关联候选证据或事件');
+      if(new Set(doc.evidenceIds).size!==doc.evidenceIds.length ||
+        new Set(doc.eventIds).size!==doc.eventIds.length)
+        fail('DUPLICATE_LINK',p,'文书关联实体重复');
+      for(const id of doc.evidenceIds)if(!evidence.has(id))
+        fail('DANGLING_EVIDENCE',p+'.evidenceIds',id);
+      for(const id of doc.eventIds)if(!events.has(id))
+        fail('DANGLING_EVENT',p+'.eventIds',id);
     }
     for(const [j,event] of c.events.entries()){
       const p=base+'.events['+j+']';
