@@ -101,3 +101,12 @@ test('phones open the 2D graph, wider screens 3D, and a saved choice wins',()=>{
   assert.equal(initialKnowledgeView('2d',false),'2d');
   assert.equal(initialKnowledgeView('webgl',false),'3d');
 });
+
+test('dragging moves the near side of the scene with the pointer, and no floor grid is drawn',()=>{
+  const front=points.map(n=>({n,p:project3D(n,DEFAULT_CAMERA,900,460)})).sort((a,b)=>a.p.depth-b.p.depth)[0].n;
+  const at=(c:typeof DEFAULT_CAMERA)=>project3D(front,c,900,460);
+  assert.ok(at(orbit(DEFAULT_CAMERA,0,40)).y>at(DEFAULT_CAMERA).y,'drag down moves the near side down');
+  assert.ok(at(orbit(DEFAULT_CAMERA,0,-40)).y<at(DEFAULT_CAMERA).y,'drag up moves the near side up');
+  assert.ok(at(orbit(DEFAULT_CAMERA,40,0)).x>at(DEFAULT_CAMERA).x,'drag right moves the near side right');
+  assert.doesNotMatch(ui,/grid/i);
+});

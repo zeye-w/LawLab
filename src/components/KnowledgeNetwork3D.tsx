@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { KNOWLEDGE_NODES } from '../data/study';
 import { knowledgeEdges, linkedConceptIds } from '../lib/relationshipMaps';
 import { buildConceptScene, CAMERA_BOUNDS, COMPACT_SCENE, compactScene, DEFAULT_CAMERA, fitCamera, hitTest3D,
-  orbit, placeLabels, project3D, zoom, type OrbitCamera, type Point3 } from '../lib/concept3d';
+  orbit, placeLabels, project3D, zoom, type OrbitCamera } from '../lib/concept3d';
 import './graphs.css';
 
 type Props = { selected: string; onSelect: (id: string) => void };
@@ -55,12 +55,6 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
     const style = getComputedStyle(stage);
     const cat = (category: string) => style.getPropertyValue(CATEGORY_TOKEN[category] ?? '--kg-core').trim() || '#4f8473';
 
-    function segment(a: Point3, b: Point3, color: string, alpha: number, lineWidth = 1) {
-      const pa = project3D(a, camera, width, height), pb = project3D(b, camera, width, height);
-      if (!pa.visible || !pb.visible) return;
-      ctx!.beginPath(); ctx!.moveTo(pa.x, pa.y); ctx!.lineTo(pb.x, pb.y);
-      ctx!.strokeStyle = color; ctx!.lineWidth = lineWidth; ctx!.globalAlpha = alpha; ctx!.stroke();
-    }
     function paint() {
       if (!visible || width <= 0 || height <= 0) return;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -68,14 +62,6 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       const active = hover ?? focusRef.current ?? selectedRef.current;
       const linked = linkedConceptIds(active);
       const strict = contrast.matches;
-
-      // Depth plane and a quiet x/z grid make the third dimension legible.
-      for (let i = -5; i <= 5; i++) {
-        segment({x:i*90,y:185,z:-420}, {x:i*90,y:185,z:420}, '#91afa1', strict?.31:.14);
-        segment({x:-450,y:185,z:i*78}, {x:450,y:185,z:i*78}, '#91afa1', strict?.31:.14);
-      }
-      segment({x:-460,y:185,z:0},{x:460,y:185,z:0},'#699686',.32,1.2);
-      segment({x:0,y:185,z:-430},{x:0,y:185,z:430},'#8b9ab3',.27,1.2);
 
       const lines = EDGES.map(edge => {
         const a = byId.get(edge.a)!, b = byId.get(edge.b)!;
@@ -229,6 +215,6 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
         <i aria-hidden="true"/>{node.title}<span className="kg-chip-cat">{node.category}</span>
       </button>)}
     </div>
-    <p className="knowledge-graph-caption">三维网格表达概念的空间关联，不表示法律概念的层级效力或法律因果。节点与连线沿用二维图谱的数据；可使用按钮和 Tab 键操作。</p>
+    <p className="knowledge-graph-caption">三维空间表达概念的关联，不表示法律概念的层级效力或法律因果。节点与连线沿用二维图谱的数据；可使用按钮和 Tab 键操作。</p>
   </div>;
 }

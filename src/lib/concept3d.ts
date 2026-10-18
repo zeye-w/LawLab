@@ -42,10 +42,11 @@ export function buildConceptScene(
   return placed.map(p => ({ ...p, x: p.x - cx, y: p.y - cy, z: p.z - cz }));
 }
 
+/** Drag-to-orbit: the scene follows the pointer, like turning a globe by hand. */
 export function orbit(camera: OrbitCamera, dx: number, dy: number): OrbitCamera {
   return {
     yaw: camera.yaw + dx * .006,
-    pitch: clamp(camera.pitch + dy * .006, CAMERA_BOUNDS.minPitch, CAMERA_BOUNDS.maxPitch),
+    pitch: clamp(camera.pitch - dy * .006, CAMERA_BOUNDS.minPitch, CAMERA_BOUNDS.maxPitch),
     distance: camera.distance,
   };
 }
