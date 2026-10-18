@@ -9,16 +9,20 @@ import {
 import { COURT_PHASES, DEFENDANT_PHASES, EVIDENCE, QUIZ } from './data/cases';
 import { ContractWorkspace } from './components/contracts/ContractWorkspace';
 import { EvidenceProofGraph } from './components/EvidenceProofGraph';
+import { CaseDossier } from './components/CaseDossier';
+import { getTeachingCase } from './content/registry';
 import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 import { PaperWorkspace } from './components/PaperWorkspace';
 import { Seal } from './components/Seal';
 import { motionLayer } from './lib/motionPlan';
 
-type ModuleId = 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'paper' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
+type ModuleId = 'home' | 'casebook' | 'learn' | 'practice' | 'litigation' | 'nonlit' | 'flashcards' | 'knowledge' | 'paper' | 'court' | 'reasoning' | 'evidence' | 'quiz' | 'timeline' | 'contracts';
 type ToolId = Exclude<ModuleId, 'home' | 'learn' | 'practice' | 'litigation' | 'nonlit'>;
 type ModuleIcon = typeof Landmark;
+const CASE = getTeachingCase();
 const MODULES: { id: ToolId; label: string; subtitle: string; description: string; icon: ModuleIcon; color: string }[] = [
+  { id: 'casebook', label: '案例资料库', subtitle: 'CASE DOSSIER', description: '统一查看虚构案件、双方陈述、文书节选与候选证据。', icon: FileText, color: 'sand' },
   { id: 'flashcards', label: '记忆卡片', subtitle: 'ACTIVE RECALL', description: '主动回忆、翻面核对、记录已掌握和待复习的知识。', icon: BrainCircuit, color: 'blue' },
   { id: 'knowledge', label: '知识图谱', subtitle: 'KNOWLEDGE GRAPH', description: '通过互动概念地图连接法律规范、事实和证据。', icon: Layers3, color: 'green' },
   { id: 'paper', label: '论文写作', subtitle: 'ACADEMIC WRITING', description: '整理研究问题、撰写章节、管理与核验参考资料。', icon: NotebookPen, color: 'sand' },
@@ -29,7 +33,7 @@ const MODULES: { id: ToolId; label: string; subtitle: string; description: strin
   { id: 'timeline', label: '案件时间线', subtitle: 'CASE TIMELINE', description: '编辑事实与程序节点，查看证据并导出时间线。', icon: CalendarDays, color: 'sand' },
   { id: 'contracts', label: '合同审查', subtitle: 'CONTRACT REVIEW', description: '支持 TXT、DOC、DOCX 和文字型 PDF 本地导入，以可解释规则筛查条款风险。', icon: FileSearch, color: 'rose' }
 ];
-const DEEP_LINKS = new Set<ModuleId>(['home','learn','practice','litigation','nonlit','flashcards','knowledge','paper','court','reasoning','evidence','quiz','timeline','contracts']);
+const DEEP_LINKS = new Set<ModuleId>(['home','casebook','learn','practice','litigation','nonlit','flashcards','knowledge','paper','court','reasoning','evidence','quiz','timeline','contracts']);
 function getHashPage(): ModuleId {
   const value = window.location.hash.slice(1) as ModuleId;
   return DEEP_LINKS.has(value) ? value : 'home';
@@ -97,8 +101,8 @@ function ModuleHome({ navigate }: { navigate: (id: ModuleId) => void }) {
   </>;
 }
 const PORTAL_TOOLS: Record<'learn'|'litigation'|'nonlit',ToolId[]> = {
-  learn:['flashcards','knowledge','paper','quiz','reasoning','court'],
-  litigation:['evidence','timeline','reasoning','court'],
+  learn:['casebook','flashcards','knowledge','paper','quiz','reasoning','court'],
+  litigation:['casebook','evidence','timeline','reasoning','court'],
   nonlit:['contracts']
 };
 function Portal({ kind, navigate }: { kind: 'learn'|'practice'|'litigation'|'nonlit'; navigate:(id:ModuleId)=>void }) {
@@ -139,9 +143,9 @@ function Court() {
   function reset(nextRole: 'plaintiff' | 'defendant' = role) { setRole(nextRole); setStep(0); setAnswers([null,null,null,null]); }
   return <>
     <PageHeading eyebrow="MODULE 01 / MOOT COURT" title="模拟法庭" description="围绕同一件虚构买卖合同纠纷，练习结构化陈述与证据质证。" right={<Pill tone="blue">情境演练</Pill>}/>
-    <div className="stack"><div className="toolbar"><span className="toolbar-label">你的角色</span><div className="segmented"><button className={role==='plaintiff'?'selected':''} onClick={()=>reset('plaintiff')}>原告代理人</button><button className={role==='defendant'?'selected':''} onClick={()=>reset('defendant')}>被告代理人</button></div></div>
-    <section className="panel"><div className="panel-head"><div><span className="eyebrow">CASE / 001</span><h2>一份迟到的设备订单</h2></div><Pill>虚构案例</Pill></div>
-      <p>双方约定交付一批设备，买方已支付预付款。交付日期到来后，双方对是否已协商延期产生争议。以下演练仅检查论证策略，不预测裁判结果。</p>
+    <div className="stack"><CaseDossier compact/><div className="toolbar"><span className="toolbar-label">你的角色</span><div className="segmented"><button className={role==='plaintiff'?'selected':''} onClick={()=>reset('plaintiff')}>原告代理人</button><button className={role==='defendant'?'selected':''} onClick={()=>reset('defendant')}>被告代理人</button></div></div>
+    <section className="panel"><div className="panel-head"><div><span className="eyebrow">CASE / 001</span><h2>{CASE.title}</h2></div><Pill>虚构案例</Pill></div>
+      <p>{CASE.synopsis} 以下演练仅检查论证策略，不预测裁判结果。</p>
       <div className="step-track">{phases.map((p,i)=><button title={`转到${p.title}`} aria-label={`转到第${i+1}阶段：${p.title}`} aria-current={i===step?'step':undefined} key={p.title} className={i===step?'current':answers[i]!==null?'done':''} onClick={()=>setStep(i)}><span>{answers[i]!==null?<Check size={14}/>:i+1}</span><small>{p.title}</small></button>)}</div>
       <div className="court-scene"><span className="court-scene-label">SESSION {String(step+1).padStart(2,'0')} / 04</span><Landmark size={46} strokeWidth={1.25}/><div>{phase.title}</div></div>
       <h3 className="question">{phase.prompt}</h3><div className="choice-list">{phase.choices.map((opt,i)=><button key={i} className={`choice ${answer===i?'choice-selected':''} ${answer===i&&feedbackKey===`${role}-${step}-${i}`?(opt.emphasis==='good'?'choice-pulse':'choice-shake'):''}`} onAnimationEnd={e=>{if(e.target===e.currentTarget)setFeedbackKey(null);}} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt.label}</span>{answer===i&&<CheckCircle2 size={18}/>}</button>)}</div>
@@ -166,6 +170,7 @@ function Reasoning() {
   function restart(){ setSelected([null,null,null,null]);setStep(0); }
   return <>
     <PageHeading eyebrow="MODULE 02 / LEGAL REASONING" title="法律推理决策树" description="先明确请求权基础，再检查事实、要件、反证与抗辩。"/>
+    <CaseDossier compact/>
     <div className="layout-split"><div className="panel">
       <div className="eyebrow">CLAIM ANALYSIS / STEP {String(step+1).padStart(2,'0')}</div><h2 className="panel-title">{REASON_QUESTIONS[step].title}</h2><p>{REASON_QUESTIONS[step].hint}</p>
       <div className="choice-list spaced">{REASON_QUESTIONS[step].choices.map((choice,i)=><button key={i} className={`choice ${answer===i?'choice-selected':''}`} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span><strong>{choice[0]}</strong><small>{choice[1]}</small></span>{answer===i&&<CheckCircle2 size={18}/>}</button>)}</div>
@@ -183,6 +188,7 @@ function EvidenceLab() {
   function toggle(id:string){setPicked(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);}
   return <>
     <PageHeading eyebrow="MODULE 03 / EVIDENCE LAB" title="证据链实验室" description="选择需要纳入分析的证据，比较证明目的、局限性和待核实事项。" right={<Pill tone="blue">虚构合同纠纷</Pill>}/>
+    <CaseDossier compact/>
     <div className="layout-split evidence-layout"><div className="panel"><div className="panel-head"><h2>候选证据</h2><span className="muted tiny">已选 {picked.length} / {EVIDENCE.length}</span></div><div className="evidence-list">{EVIDENCE.map(e=><button key={e.id} className={`evidence-card ${picked.includes(e.id)?'evidence-on':''}`} onClick={()=>toggle(e.id)} aria-pressed={picked.includes(e.id)}><span className="checkmark">{picked.includes(e.id)&&<Check size={14}/>}</span><span className="grow"><strong>{e.title}</strong><small>{e.type}</small></span><ChevronRight size={16}/></button>)}</div><Notice>选择证据只改变当前分析清单，不代表证据已被采信，也不等于证明力评分。</Notice></div>
     <div className="panel"><div className="panel-head"><div><div className="eyebrow">PROOF MAP</div><h2>待证事实与支撑关系</h2></div></div><div className="fact-focus"><Scale size={22}/><div><strong>核心待证事实</strong><p>合同关系、是否付款、是否按约交付以及是否协商延期。</p></div></div>
       <EvidenceProofGraph selected={picked} onToggle={toggle}/>
@@ -245,6 +251,7 @@ function Timeline() {
   function remove(id:string){if(!removingId)setRemovingId(id);}
   return <>
     <PageHeading eyebrow="MODULE 05 / CASE TIMELINE" title="案件时间线生成器" description="把零散事实变成可检索的案件脉络。支持新建节点、筛选与 CSV 导出。"/>
+    <CaseDossier compact/>
     <div className="toolbar timeline-toolbar"><div className="segmented">{(['全部','事实','程序'] as const).map(t=><button key={t} onClick={()=>setFilter(t)} className={filter===t?'selected':''}>{t==='全部'?'全部节点':`${t}时间线`}</button>)}</div><div className="toolbar-buttons"><button className="btn outline" onClick={()=>downloadText('lawlab-timeline.csv',timelineToCsv(sortTimeline(events)),'text/csv;charset=utf-8')}><ArrowDownToLine size={16}/> 导出 CSV</button><button className="btn primary" onClick={()=>setShowForm(value=>!value)}><Plus size={16}/> 添加事件</button></div></div>
     {showForm&&<form className="panel new-event" onSubmit={add}><div className="panel-head"><h2>添加时间节点</h2><button type="button" className="icon-button" aria-label="关闭" onClick={()=>setShowForm(false)}><X size={18}/></button></div><div className="form-grid"><label>事件日期<input required type="date" value={draft.date} onChange={e=>setDraft(old=>({...old,date:e.target.value}))}/></label><label>节点类型<select value={draft.type} onChange={e=>setDraft(old=>({...old,type:e.target.value as EventType}))}><option>事实</option><option>程序</option></select></label><label className="wide">事件标题<input required maxLength={80} value={draft.title} placeholder="例如：对方发出补充协议" onChange={e=>setDraft(old=>({...old,title:e.target.value}))}/></label><label className="wide">事件描述<textarea value={draft.detail} rows={2} onChange={e=>setDraft(old=>({...old,detail:e.target.value}))}/></label><label className="wide">关联证据<input value={draft.evidence} placeholder="例如：邮件、合同、转账凭证" onChange={e=>setDraft(old=>({...old,evidence:e.target.value}))}/></label></div><div className="form-actions"><button className="btn primary" type="submit">保存事件</button></div></form>}
     <div className="layout-split timeline-layout"><div className="panel"><div className="panel-head"><h2>事件脉络</h2><span className="muted tiny">{shown.length} 个节点</span></div><div className="timeline-stream">{shown.length?shown.map(event=><button key={event.id} className={`timeline-row ${current?.id===event.id?'timeline-selected':''} ${lastAddedId===event.id?'timeline-row-enter':''} ${removingId===event.id?'timeline-row-exit':''}`} onAnimationEnd={e=>{if(e.target===e.currentTarget&&lastAddedId===event.id)setLastAddedId(null);}} onClick={()=>setSelectedId(event.id)}><span className={`timeline-rail ${event.type==='程序'?'rail-procedure':''}`}><span/></span><span className="timeline-body"><span className="timeline-date">{event.date} · {event.type}</span><strong>{event.title}</strong><small>{event.evidence||'尚无关联证据'}</small></span><ChevronRight size={16}/></button>):<Placeholder>这一类别还没有事件。可切换筛选或新增节点。</Placeholder>}</div></div>
@@ -289,6 +296,7 @@ export default function App(){
     <div className="sidebar-group"><span className="side-heading">总览</span>{navItem('home','选择工作台',LayoutGrid)}</div>
     <nav className="sidebar-group" aria-label="学生版导航"><span className="side-heading">学生版 · LEARN</span>
       {navItem('learn','学习空间',GraduationCap)}
+      {navItem('casebook','案例资料库',FileText)}
       {navItem('flashcards','记忆卡片',BrainCircuit)}
       {navItem('knowledge','知识图谱',Layers3)}
       {navItem('paper','论文写作',NotebookPen)}
@@ -307,7 +315,7 @@ export default function App(){
     <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2.1 · LOCAL DEMONSTRATION</span></div></aside>
     {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地保存 · 文献检索联网</span></div></header>
-      <main key={page} className={`content content-enter motion-${layer}`} id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractWorkspace/>}</main>
+      <main key={page} className={`content content-enter motion-${layer}`} id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='casebook'?<><PageHeading eyebrow="CASE LIBRARY / 001" title="统一法律案例资料库" description="从同一份虚构案卷出发，连接证据、时间线、法律推理和模拟法庭。"/><CaseDossier/></>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractWorkspace/>}</main>
       <footer className="footer"><span>LAWLAB · LEARN THE LAW. PRACTICE THE LAW.</span><span>教学与流程演示 · 不构成法律意见</span></footer>
     </div>
   </div>;
