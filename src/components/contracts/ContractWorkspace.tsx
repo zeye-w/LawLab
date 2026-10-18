@@ -25,9 +25,6 @@ export function ContractWorkspace(){
   const [uploadError,setUploadError]=useState('');
   const [importing,setImporting]=useState(false);
   const editorRef=useRef<HTMLTextAreaElement>(null);
-  // While a finding is shown in the editor it is read-only: a stray key must not replace the
-  // selected clause, and phones do not raise the keyboard for a read-only field.
-  const [inspecting,setInspecting]=useState(false);
   const [progress,setProgress]=useState<ContractImportProgress|null>(null);
   const source=state.source;
   const findings=currentReviewFindings(state);
@@ -42,8 +39,9 @@ export function ContractWorkspace(){
     requestAnimationFrame(()=>{
       const editor=editorRef.current;
       if(!editor||editor.value.slice(location.start,location.end)!==finding.quote)return;
-      editor.readOnly=true;setInspecting(true);
-      editor.focus({preventScroll:true});
+      // Keep focus on the risk button. Moving focus into the textarea would cause
+      // screen readers to announce the entire selection on every risk change.
+      // The visible <mark> preview remains the explicit source highlight.
       editor.setSelectionRange(location.start,location.end);
       editor.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
     });
@@ -79,11 +77,10 @@ export function ContractWorkspace(){
           <h2>合同文本</h2><span className="muted tiny">仅在浏览器内处理</span>
         </div>
         <textarea ref={editorRef} className="contract-text" aria-label="需要审查的合同文本" spellCheck={false}
-          value={source.text} disabled={importing} readOnly={inspecting}
-          onPointerDown={()=>setInspecting(false)} onBlur={()=>setInspecting(false)}
+          value={source.text} disabled={importing}
           onChange={e=>changeText(e.target.value)} placeholder="在这里粘贴脱敏后的合同文本…"/>
-        {current&&highlighted&&<div className="contract-match-preview" role="status">
-          <strong>风险对应原文 · 点击右侧风险可定位并选中左侧正文{inspecting?'（定位中为只读，点击正文即可继续编辑）':''}</strong>
+        {current&&highlighted&&<div className="contract-match-preview">
+          <strong>风险对应原文 · 点击右侧风险可定位左侧正文并高亮对应文字</strong>
           <p>{source.text.slice(highlighted.snippetStart,highlighted.start)}<mark>{source.text.slice(highlighted.start,highlighted.end)}</mark>{source.text.slice(highlighted.end,highlighted.snippetEnd)}</p>
           <small>仅突出当前文本版本的精确规则命中片段；不是整条款法律效力判断。</small>
         </div>}
@@ -151,10 +148,12 @@ export function ContractWorkspace(){
               <div className="findings-list">
                 {findings.map(f=><button key={f.id}
                   className={'finding finding-enter '+(current?.id===f.id?'finding-active':'')} style={{animationDelay:`${Math.min(findings.indexOf(f),8)*45}ms`}}
+                  aria-pressed={current?.id===f.id}
+                  aria-label={`${f.title}，${f.severity==='high'?'高关注':'需关注'}`}
                   onClick={()=>focusFinding(f)}>
                   <span className={'risk-line risk-'+f.severity}/>
                   <span className="grow"><strong>{f.title}</strong>
-                    <small>{f.quote?'“'+f.quote.slice(0,44)+(f.quote.length>44?'…':'')+'”':'文本未检测到明确约定'}</small>
+                    <small aria-hidden="true">{f.quote?'“'+f.quote.slice(0,44)+(f.quote.length>44?'…':'')+'”':'文本未检测到明确约定'}</small>
                   </span>
                   <RiskPill tone={f.severity==='high'?'red':'amber'}>{f.severity==='high'?'高关注':'需关注'}</RiskPill>
                 </button>)}
