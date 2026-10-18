@@ -23,9 +23,26 @@ export function normalizeContractText(text:string):string{
   // Strip null/control characters without destroying clause boundaries or tabs.
   return text.replace(/\u0000/g,'').replace(/\r\n?/g,'\n')
     .replace(/[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,'')
-    // PDF.js often splits Chinese words into individual text items.
-    .replace(/(?<=\p{Script=Han})[ \t]+(?=\p{Script=Han})/gu,'')
-    .replace(/[ \t]+\n/g,'').replace(/\n{4,}/g,'\n\n\n').trim();
+    .replace(/[ \t]+\n/g,'\n').replace(/\n{4,}/g,'\n\n\n').trim();
+}
+// A new line that starts like this begins a clause, party block or list item, so it must stay on its own line.
+const CLAUSE_START=/^(?:第[一二三四五六七八九十百千零〇两\d]+[条章节款项部分]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十\d]+[）)]|\d+(?:\.\d+)*[、．.](?!\d)|[甲乙丙丁][方]?[：:]|附件|签署|签字|盖章|日期|(?:甲|乙|丙|丁)方(?:（|\(|：|:))/;
+// A line ending with one of these finished its sentence; anything else was wrapped by the PDF layout.
+const SENTENCE_END=/[。；;！!？?：:）)」』”"]$/;
+/** Rejoin lines that PDF layout broke mid-sentence; contract rules cannot match across a newline. */
+export function joinPdfSoftWraps(text:string):string{
+  const lines=text.split('\n'),out:string[]=[];
+  for(const line of lines){
+    const prev=out.length?out[out.length-1]:'';
+    if(prev&&line&&!SENTENCE_END.test(prev)&&!CLAUSE_START.test(line)){
+      out[out.length-1]=prev+(/[A-Za-z0-9]$/.test(prev)&&/^[A-Za-z0-9]/.test(line)?' ':'')+line;
+    }else out.push(line);
+  }
+  return out.join('\n');
+}
+/** PDF.js often splits Chinese words into separate text items; only PDF text gets this treatment. */
+export function normalizePdfText(text:string):string{
+  return joinPdfSoftWraps(normalizeContractText(text).replace(/(?<=\p{Script=Han})[ \t]+(?=\p{Script=Han})/gu,''));
 }
 export function validatedContractText(raw:string):string{
   const text=normalizeContractText(raw);
@@ -83,7 +100,7 @@ async function extractPdf(data:Uint8Array):Promise<{text:string;pages:number;war
       const data=await page.getTextContent();
       const segment=data.items.map(item=>'str' in item&&typeof item.str==='string'
         ?item.str+(('hasEOL' in item&&item.hasEOL)?'\n':' '):'').join('');
-      const text=normalizeContractText(segment);
+      const text=normalizePdfText(segment);
       if(text.length<8)blank.push(i);
       parts.push(text);
       if(parts.reduce((n,t)=>n+t.length,0)>MAX_CONTRACT_TEXT_CHARS){
@@ -110,7 +127,12 @@ export async function importContractFile(file:File):Promise<ContractImportResult
   const warnings:string[]=[];
   try{
     if(format==='txt'){
-      text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+      try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}
+      catch{
+        // Notepad on Chinese Windows often saves GBK; GB18030 is its superset and every browser decodes it.
+        text=new TextDecoder('gb18030').decode(bytes);
+        warnings.push('该文本不是 UTF-8 编码，已按 GBK/GB18030 读取；如出现乱码，请另存为 UTF-8 后重试。');
+      }
     }else if(format==='doc'){
       const {default:readDoc}=await import('./vendor/docToText.js');
       const extracted=readDoc(bytes);
