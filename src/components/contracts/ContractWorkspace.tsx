@@ -3,9 +3,10 @@ import { CheckCircle2, FileSearch, FileText, Search, ShieldCheck, Upload } from 
 import { importContractFile } from '../../lib/contractImport';
 import type { ContractFinding } from '../../lib/contractRules';
 import {
-  currentReviewFindings, initialContractWorkspace, selectReviewFinding,
-  withEditedContract, withImportedContract, withReviewedContract, withSampleContract
+  canAssessMissingClauses, currentReviewFindings, initialContractWorkspace, selectReviewFinding,
+  withDocumentScope, withEditedContract, withImportedContract, withReviewedContract, withSampleContract
 } from '../../lib/contracts/workspace';
+import type {ContractDocumentScope} from '../../lib/contracts/workspace';
 
 /** Contract-only UI: keep contract data out of shared App state and out of persistent storage. */
 function RiskPill({children,tone='neutral'}:{children:ReactNode;tone?:'neutral'|'red'|'amber'|'green'}){
@@ -60,6 +61,17 @@ export function ContractWorkspace(){
           value={source.text} disabled={importing}
           onChange={e=>changeText(e.target.value)} placeholder="在这里粘贴脱敏后的合同文本…"/>
         <div className="contract-actions">
+          <label htmlFor="contract-document-scope" className="muted tiny">提供的合同材料范围</label>
+          <select id="contract-document-scope" aria-label="提供的合同材料范围"
+            value={source.documentScope} disabled={importing}
+            onChange={e=>setState(old=>withDocumentScope(old,e.target.value as ContractDocumentScope))}>
+            <option value="unknown">尚未确认是否为完整合同</option>
+            <option value="excerpt">仅提供了合同片段</option>
+            <option value="whole">我确认已提供整份合同正文</option>
+          </select>
+        </div>
+        <p className="muted tiny">文件文字提取是否完整与所提供材料是否包含整份合同分别判断。只有用户确认整份正文且没有已知提取缺口，才进行“缺少争议解决约定”等负面筛查。</p>
+        <div className="contract-actions">
           <label className="btn outline file-upload"><Upload size={16}/>
             {importing?'正在解析文件…':'导入 TXT / DOC / DOCX / PDF'}
             <input type="file" accept=".txt,.doc,.docx,.pdf,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -81,6 +93,7 @@ export function ContractWorkspace(){
                 ?'审查只能覆盖当前可见的提取文本，不能代表整份原件已被完整识别。'
                 :source.integrity==='blocked'?'该来源不能用于规则审查。':'请核对原始文件与编辑区正文是否一致。'}</p>}
             {source.pageSpans&&<p>已建立 {source.pageSpans.length} 个 PDF 物理页的文本范围映射；修改正文后映射会失效。</p>}
+            <p>合同材料范围：{source.documentScope==='whole'?'声明整份合同正文':source.documentScope==='excerpt'?'仅合同片段':'尚未确认'}。</p>
             {source.warnings.map((warning,i)=><p key={i}>{warning}</p>)}
           </div>
         </div>
@@ -92,6 +105,7 @@ export function ContractWorkspace(){
           <div><div className="eyebrow">REVIEW FINDINGS</div><h2>风险提示</h2></div>
           {findings&&<RiskPill tone={high?'red':'amber'}>{findings.length} 项待核查</RiskPill>}
         </div>
+        {findings!==null&&!canAssessMissingClauses(source)&&<p className="muted tiny" role="status">目前仅展示已命中的风险；因合同范围未确认或文字提取可能不完整，暂不判断整份合同是否缺少必要条款。</p>}
         {findings===null
           ?<div className="empty-review"><FileSearch size={40} strokeWidth={1.3}/>
             <h3>从一份合同开始</h3><p>导入文件、粘贴文本或使用示例，点击「开始审查」查看规则结果。</p></div>
