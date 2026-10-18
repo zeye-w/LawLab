@@ -25,7 +25,7 @@ export function buildConceptScene(
     degrees.set(e.a, (degrees.get(e.a) ?? 0) + 1);
     degrees.set(e.b, (degrees.get(e.b) ?? 0) + 1);
   }
-  return nodes.map((node, i) => {
+  const placed = nodes.map((node, i) => {
     const known = KNOWLEDGE_POSITIONS[node.id];
     const angle = 2 * Math.PI * i / Math.max(nodes.length, 1);
     const x = known ? (known.x - 450) * .78 : Math.cos(angle) * (260 + 30 * (i % 3));
@@ -35,6 +35,11 @@ export function buildConceptScene(
     const z = layer + ((i * 7) % 5 - 2) * 19;
     return { id: node.id, category: node.category, degree: degrees.get(node.id) ?? 0, x, y, z };
   });
+  // Centre the bounding box on the origin so orbiting turns the scene about its middle.
+  const mid = (k: 'x' | 'y' | 'z') => placed.length
+    ? (Math.min(...placed.map(p => p[k])) + Math.max(...placed.map(p => p[k]))) / 2 : 0;
+  const cx = mid('x'), cy = mid('y'), cz = mid('z');
+  return placed.map(p => ({ ...p, x: p.x - cx, y: p.y - cy, z: p.z - cz }));
 }
 
 export function orbit(camera: OrbitCamera, dx: number, dy: number): OrbitCamera {
@@ -45,12 +50,31 @@ export function orbit(camera: OrbitCamera, dx: number, dy: number): OrbitCamera 
   };
 }
 
-export function zoom(camera: OrbitCamera, multiplier: number): OrbitCamera {
+export function zoom(camera: OrbitCamera, multiplier: number, maxDistance: number = CAMERA_BOUNDS.maxDistance): OrbitCamera {
   return {
     ...camera,
-    distance: clamp(camera.distance * multiplier, CAMERA_BOUNDS.minDistance, CAMERA_BOUNDS.maxDistance),
+    distance: clamp(camera.distance * multiplier, CAMERA_BOUNDS.minDistance, maxDistance),
   };
 }
+
+/** Screen room each node needs around its centre: sphere above, label box below. */
+export type FitPadding = { x: number; top: number; bottom: number };
+
+/** Pull the camera back until every concept and its label fits the canvas, e.g. on phones.
+ * Wide canvases that already fit keep the base camera unchanged. */
+export function fitCamera(
+  concepts: readonly Point3[], width: number, height: number, pad: FitPadding,
+  base: OrbitCamera = DEFAULT_CAMERA,
+): OrbitCamera {
+  const fits = (camera: OrbitCamera) => concepts.every(n => {
+    const p = project3D(n, camera, width, height);
+    return p.visible && p.x >= pad.x && p.x <= width - pad.x && p.y >= pad.top && p.y <= height - pad.bottom;
+  });
+  let camera = { ...base };
+  for (let i = 0; i < 80 && !fits(camera); i++) camera = { ...camera, distance: camera.distance * 1.05 };
+  return camera;
+}
+
 
 /** Perspective projection, with z pointing toward the viewer and no DOM dependencies. */
 export function project3D(p: Point3, camera: OrbitCamera, width: number, height: number): Projection {
@@ -79,4 +103,28 @@ export function hitTest3D(
   }).filter(h => h.visible && h.distance <= h.radius);
   hits.sort((a, b) => a.distance / a.radius - b.distance / b.radius || a.depth - b.depth);
   return hits[0]?.id ?? null;
+}
+
+export type LabelBox = { x: number; y: number; r: number; w: number; h: number };
+const LABEL_GAP = 10;
+
+/** Put each label under its node, or above it when that spot is already taken.
+ * Items are placed in priority order (nearest / selected first); returns each box's top edge. */
+export function placeLabels(items: readonly LabelBox[]): number[] {
+  const taken: { x0: number; x1: number; y0: number; y1: number }[] = [];
+  const hits = (b: { x0: number; x1: number; y0: number; y1: number }) =>
+    taken.some(t => b.x0 < t.x1 && t.x0 < b.x1 && b.y0 < t.y1 && t.y0 < b.y1);
+  return items.map(it => {
+    const box = (top: number) => ({ x0: it.x - it.w / 2, x1: it.x + it.w / 2, y0: top, y1: top + it.h });
+    const below = box(it.y + it.r + LABEL_GAP), above = box(it.y - it.r - LABEL_GAP - it.h);
+    const chosen = hits(below) && !hits(above) ? above : below;
+    taken.push(chosen);
+    return chosen.y0;
+  });
+}
+
+/** Narrow canvases get a taller, slimmer scene so labels are not squeezed side by side. */
+export const COMPACT_SCENE = { below: 560, x: 0.8, y: 1.2 } as const;
+export function compactScene<T extends Point3>(concepts: readonly T[]): T[] {
+  return concepts.map(n => ({ ...n, x: n.x * COMPACT_SCENE.x, y: n.y * COMPACT_SCENE.y }));
 }

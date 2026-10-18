@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { KNOWLEDGE_NODES } from '../src/data/study.ts';
 import { knowledgeEdges, linkedConceptIds } from '../src/lib/relationshipMaps.ts';
-import { buildConceptScene, DEFAULT_CAMERA, project3D, orbit, zoom, hitTest3D, CAMERA_BOUNDS } from '../src/lib/concept3d.ts';
+import { buildConceptScene, DEFAULT_CAMERA, project3D, orbit, zoom, hitTest3D, CAMERA_BOUNDS, fitCamera, compactScene, placeLabels } from '../src/lib/concept3d.ts';
+import { initialKnowledgeView } from '../src/lib/knowledgeView.ts';
 
 const points=buildConceptScene(KNOWLEDGE_NODES,knowledgeEdges());
 const ui=readFileSync(new URL('../src/components/KnowledgeNetwork3D.tsx',import.meta.url),'utf8');
@@ -46,7 +47,8 @@ test('hit picking is depth-aware and ignores empty canvas',()=>{
 
 test('3D canvas keeps accessible controls, shared selection and 2D fallback',()=>{
   assert.match(parent,/lazy\(\(\) => import\('\.\/KnowledgeNetwork3D'\)/);
-  assert.match(parent,/const \[view, setView\] = useState<'2d'\|'3d'>\('3d'\)/);
+  assert.match(parent,/const \[view, setView\] = useState<KnowledgeView>\(readKnowledgeView\)/);
+  assert.match(parent,/localStorage\.setItem\(KNOWLEDGE_VIEW_KEY, next\)/);
   assert.match(parent,/<KnowledgeNetwork3D selected=\{selected\} onSelect=\{setSelected\}/);
   assert.match(parent,/<KnowledgeNetwork selected=\{selected\} onSelect=\{setSelected\}/);
   assert.match(parent,/aria-label="知识图谱显示模式"/);
@@ -64,4 +66,38 @@ test('future concept IDs have deterministic 3D positions without changing scene 
   const future=nodes.find(n=>n.id==='future-concept-100')!;
   assert.ok([future.x,future.y,future.z].every(Number.isFinite));
   assert.notDeepEqual({x:future.x,y:future.y,z:future.z},{x:0,y:0,z:0});
+});
+
+test('the default camera fits every concept on phones and leaves desktop framing unchanged',()=>{
+  const pad={x:46,top:34,bottom:66};
+  assert.deepEqual(fitCamera(points,900,460,pad),DEFAULT_CAMERA);
+  for(const [w,h,scene] of [[340,390,compactScene(points)],[300,390,compactScene(points)],[640,460,points]] as const){
+    const camera=fitCamera(scene,w,h,{...pad,top:58});
+    assert.ok(camera.distance>DEFAULT_CAMERA.distance,`${w}px should pull the camera back`);
+    for(const n of scene){
+      const p=project3D(n,camera,w,h);
+      assert.ok(p.visible&&p.x>=46&&p.x<=w-46&&p.y>=58&&p.y<=h-66,`${n.id} off screen at ${w}px`);
+    }
+    assert.ok(zoom(camera,1.19,Math.max(CAMERA_BOUNDS.maxDistance,camera.distance*1.4)).distance>camera.distance,'zoom out still possible');
+  }
+});
+
+test('labels flip above their node instead of covering an already placed label',()=>{
+  const tops=placeLabels([{x:100,y:100,r:10,w:80,h:23},{x:120,y:104,r:10,w:80,h:23},{x:400,y:100,r:10,w:80,h:23}]);
+  assert.equal(tops[0],120);
+  assert.equal(tops[1],104-10-10-23);
+  assert.equal(tops[2],120);
+});
+
+test('3D labels do not rely on ctx.roundRect (Safari < 16, Firefox < 112)',()=>{
+  assert.doesNotMatch(ui,/\.roundRect\(/);
+  assert.match(ui,/arcTo/);
+});
+
+test('phones open the 2D graph, wider screens 3D, and a saved choice wins',()=>{
+  assert.equal(initialKnowledgeView(null,true),'2d');
+  assert.equal(initialKnowledgeView(null,false),'3d');
+  assert.equal(initialKnowledgeView('3d',true),'3d');
+  assert.equal(initialKnowledgeView('2d',false),'2d');
+  assert.equal(initialKnowledgeView('webgl',false),'3d');
 });

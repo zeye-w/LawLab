@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { KNOWLEDGE_NODES } from '../data/study';
 import { knowledgeEdges, linkedConceptIds } from '../lib/relationshipMaps';
-import { buildConceptScene, DEFAULT_CAMERA, hitTest3D, orbit, project3D, zoom,
-  type OrbitCamera, type Point3 } from '../lib/concept3d';
+import { buildConceptScene, CAMERA_BOUNDS, COMPACT_SCENE, compactScene, DEFAULT_CAMERA, fitCamera, hitTest3D,
+  orbit, placeLabels, project3D, zoom, type OrbitCamera, type Point3 } from '../lib/concept3d';
 import './graphs.css';
 
 type Props = { selected: string; onSelect: (id: string) => void };
@@ -10,9 +10,19 @@ const CATEGORY_TOKEN: Record<string, string> = {
   '总览':'--kg-core', '民法':'--kg-civil', '证据法':'--kg-evidence', '法律方法':'--kg-method',
 };
 const NODES = buildConceptScene(KNOWLEDGE_NODES, knowledgeEdges());
+const COMPACT_NODES = compactScene(NODES);
 const EDGES = knowledgeEdges();
-const BY_ID = new Map(NODES.map(node => [node.id, node]));
 const META = new Map(KNOWLEDGE_NODES.map(node => [node.id, node]));
+const LABEL_H = 23;
+
+/** Rounded label box drawn with arcTo, so browsers without ctx.roundRect still paint. */
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
 
 /** Perspective 3D concept explorer. Uses the browser's 2D canvas as a lightweight 3D
  * projection surface (no WebGL runtime), with a separate keyboard-accessible node list. */
@@ -37,7 +47,9 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const contrast = window.matchMedia('(prefers-contrast: more)');
-    let camera: OrbitCamera = { ...DEFAULT_CAMERA };
+    let camera: OrbitCamera = { ...DEFAULT_CAMERA }, home: OrbitCamera = { ...DEFAULT_CAMERA }, moved = false;
+    let scene = NODES, byId = new Map(scene.map(node => [node.id, node]));
+    const maxDistance = () => Math.max(CAMERA_BOUNDS.maxDistance, home.distance * 1.4);
     let width = 0, height = 0, dpr = 1, visible = true, hover: string | null = null;
     let gesture: { startX: number; startY: number; x: number; y: number; moved: boolean; id: string | null } | null = null;
     const style = getComputedStyle(stage);
@@ -66,7 +78,7 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       segment({x:0,y:185,z:-430},{x:0,y:185,z:430},'#8b9ab3',.27,1.2);
 
       const lines = EDGES.map(edge => {
-        const a = BY_ID.get(edge.a)!, b = BY_ID.get(edge.b)!;
+        const a = byId.get(edge.a)!, b = byId.get(edge.b)!;
         const pa = project3D(a, camera, width, height), pb = project3D(b, camera, width, height);
         return { a, b, pa, pb, lit:edge.a===active||edge.b===active, depth:(pa.depth+pb.depth)/2 };
       }).sort((a,b)=>b.depth-a.depth);
@@ -79,13 +91,22 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
         ctx!.stroke();
       }
 
-      const projected = NODES.map(n => ({ ...n, p:project3D(n,camera,width,height) }))
-        .filter(n=>n.p.visible).sort((a,b)=>b.p.depth-a.p.depth);
       const font = getComputedStyle(stage!).fontFamily || 'sans-serif';
+      const fontSize = width < 480 ? 11 : 12;
+      const projected = scene.map(n => ({ ...n, p:project3D(n,camera,width,height),
+        r:0, labelW:0, labelY:0, title:META.get(n.id)?.title ?? n.id }))
+        .filter(n=>n.p.visible).sort((a,b)=>b.p.depth-a.p.depth);
       for (const n of projected) {
-        const {x,y,scale} = n.p, chosen = n.id===selectedRef.current;
+        n.r = Math.max(5,(7+n.degree*1.65)*n.p.scale);
+        ctx!.font = `700 ${fontSize}px ${font}`;
+        n.labelW = Math.ceil(ctx!.measureText(n.title).width)+18;
+      }
+      // Labels claim space selected-first, then nearest-first; a taken spot flips the label above.
+      const order = [...projected].sort((a,b)=>Number(b.id===selectedRef.current)-Number(a.id===selectedRef.current)||a.p.depth-b.p.depth);
+      placeLabels(order.map(n=>({x:n.p.x,y:n.p.y,r:n.r,w:n.labelW,h:LABEL_H}))).forEach((top,i)=>{order[i].labelY=top;});
+      for (const n of projected) {
+        const {x,y} = n.p, r = n.r, chosen = n.id===selectedRef.current;
         const illuminated = linked.has(n.id) || strict, focused = n.id===active;
-        const r = Math.max(5,(7+n.degree*1.65)*scale);
         const color = cat(n.category);
         ctx!.globalAlpha = 1;
         if (chosen || focused) {
@@ -101,17 +122,15 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
           ctx!.beginPath();ctx!.arc(x,y,r+3.8,0,Math.PI*2);
           ctx!.strokeStyle='#315c4e';ctx!.lineWidth=2;ctx!.globalAlpha=1;ctx!.stroke();
         }
-        const title=META.get(n.id)?.title ?? n.id;
-        ctx!.font=`${chosen||focused?'700':'600'} 12px ${font}`;
-        const labelW=Math.ceil(ctx!.measureText(title).width)+18;
-        const ly=y+r+10;
+        const title=n.title, labelW=n.labelW, ly=n.labelY;
+        ctx!.font=`${chosen||focused?'700':'600'} ${fontSize}px ${font}`;
         ctx!.globalAlpha=chosen||illuminated?0.95:0.84;
         ctx!.fillStyle='#ffffff';
         ctx!.strokeStyle=chosen?'#9ec5b2':'#e0e9e2';
         ctx!.lineWidth=1;
-        ctx!.beginPath();ctx!.roundRect(x-labelW/2,ly,labelW,23,8);ctx!.fill();ctx!.stroke();
+        roundedRect(ctx!,x-labelW/2,ly,labelW,LABEL_H,8);ctx!.fill();ctx!.stroke();
         ctx!.textAlign='center';ctx!.textBaseline='middle';ctx!.globalAlpha=1;
-        ctx!.fillStyle='#2f4a42';ctx!.fillText(title,x,ly+11.5);
+        ctx!.fillStyle='#2f4a42';ctx!.fillText(title,x,ly+LABEL_H/2);
       }
       ctx!.globalAlpha = 1;
     }
@@ -121,6 +140,11 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       width=rect.width; height=rect.height;
       dpr=Math.min(2,window.devicePixelRatio||1);
       canvas!.width=Math.round(width*dpr);canvas!.height=Math.round(height*dpr);
+      scene = width < COMPACT_SCENE.below ? COMPACT_NODES : NODES;
+      byId = new Map(scene.map(node => [node.id, node]));
+      // Reserve room for the toolbar/caption overlays so every concept starts on screen.
+      home = fitCamera(scene, width, height, { x: 46, top: width < 640 ? 58 : 34, bottom: 66 });
+      if (!moved) camera = { ...home };
       paint();
     }
     function pointer(e: PointerEvent|WheelEvent) {
@@ -131,11 +155,11 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       const p=pointer(e);
       if(gesture) {
         if(Math.hypot(p.x-gesture.startX,p.y-gesture.startY)>5)gesture.moved=true;
-        if(gesture.moved) camera=orbit(camera,p.x-gesture.x,p.y-gesture.y);
+        if(gesture.moved){camera=orbit(camera,p.x-gesture.x,p.y-gesture.y);moved=true;}
         gesture.x=p.x;gesture.y=p.y;paint();return;
       }
       if(e.pointerType==='mouse') {
-        const id=hitTest3D(NODES,camera,width,height,p.x,p.y);
+        const id=hitTest3D(scene,camera,width,height,p.x,p.y);
         canvas!.style.cursor=id?'pointer':'grab';
         if(id!==hover){hover=id;paint();}
       }
@@ -144,7 +168,7 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
       if(e.pointerType==='mouse' && e.button!==0)return;
       const p=pointer(e);
       gesture={startX:p.x,startY:p.y,x:p.x,y:p.y,moved:false,
-        id:hitTest3D(NODES,camera,width,height,p.x,p.y)};
+        id:hitTest3D(scene,camera,width,height,p.x,p.y)};
       canvas!.setPointerCapture(e.pointerId);
     };
     const up=()=>{
@@ -157,7 +181,7 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
     // Normal scrolling is untouched; browser pinch gestures send ctrl-wheel.
     const wheel=(e:WheelEvent)=>{
       if(!e.ctrlKey && !e.metaKey)return;
-      e.preventDefault();camera=zoom(camera,Math.exp(e.deltaY*.002));paint();
+      e.preventDefault();camera=zoom(camera,Math.exp(e.deltaY*.002),maxDistance());moved=true;paint();
     };
     const ro=new ResizeObserver(resize);ro.observe(canvas);
     const io=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;if(visible)paint();});
@@ -168,9 +192,9 @@ export function KnowledgeNetwork3D({ selected, onSelect }: Props) {
     canvas.addEventListener('pointerleave',leave);canvas.addEventListener('wheel',wheel,{passive:false});
     api.current={
       redraw:paint,
-      turn:(x,y)=>{camera=orbit(camera,x,y);paint();},
-      changeZoom:(factor)=>{camera=zoom(camera,factor);paint();},
-      reset:()=>{camera={...DEFAULT_CAMERA};paint();}
+      turn:(x,y)=>{camera=orbit(camera,x,y);moved=true;paint();},
+      changeZoom:(factor)=>{camera=zoom(camera,factor,maxDistance());moved=true;paint();},
+      reset:()=>{camera={...home};moved=false;paint();}
     };
     resize();
     return ()=>{

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, CircleHelp, GitBranch, RotateCcw, Sparkles } from 'lucide-react';
 import { KNOWLEDGE_NODES, STUDY_CARDS, type StudyTopic } from '../data/study';
 import { linkedConceptIds } from '../lib/relationshipMaps';
+import { initialKnowledgeView, KNOWLEDGE_VIEW_KEY, type KnowledgeView } from '../lib/knowledgeView';
 import { KnowledgeNetwork } from './KnowledgeNetwork';
 
 // Keep 3D math and drawing out of the bundle for other teaching modules.
@@ -83,9 +84,18 @@ export function Flashcards() {
     <div className="study-reset"><button className="btn subtle" onClick={()=>{if(window.confirm('确定清空全部记忆卡片的学习进度吗？')) {setHistory({});setIndex(0);setRevealed(false);}}}><RotateCcw size={15}/> 重置学习记录</button></div>
   </div>;
 }
+function readKnowledgeView(): KnowledgeView {
+  let stored: string | null = null;
+  try { stored = localStorage.getItem(KNOWLEDGE_VIEW_KEY); } catch { /* unavailable */ }
+  return initialKnowledgeView(stored, window.matchMedia('(max-width: 640px)').matches);
+}
 export function KnowledgeGraph() {
   const [selected, setSelected] = useState('relationship');
-  const [view, setView] = useState<'2d'|'3d'>('3d');
+  const [view, setView] = useState<KnowledgeView>(readKnowledgeView);
+  const chooseView = (next: KnowledgeView) => {
+    setView(next);
+    try { localStorage.setItem(KNOWLEDGE_VIEW_KEY, next); } catch { /* unavailable */ }
+  };
   const current = KNOWLEDGE_NODES.find(node=>node.id===selected) || KNOWLEDGE_NODES[0];
   const linked=linkedConceptIds(current.id);
   const related = KNOWLEDGE_NODES.filter(node=>node.id!==current.id&&linked.has(node.id));
@@ -95,8 +105,8 @@ export function KnowledgeGraph() {
       <div className="knowledge-mode-bar">
         <div className="knowledge-guide"><GitBranch size={18}/><span>选择任一节点，查看直接关联的法律概念。</span></div>
         <div className="knowledge-view-toggle" role="group" aria-label="知识图谱显示模式">
-          <button type="button" aria-pressed={view==='2d'} onClick={()=>setView('2d')}>2D 平面</button>
-          <button type="button" aria-pressed={view==='3d'} onClick={()=>setView('3d')}>3D 空间</button>
+          <button type="button" aria-pressed={view==='2d'} onClick={()=>chooseView('2d')}>2D 平面</button>
+          <button type="button" aria-pressed={view==='3d'} onClick={()=>chooseView('3d')}>3D 空间</button>
         </div>
       </div>
       {view==='3d'

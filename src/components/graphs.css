@@ -38,7 +38,7 @@
 @media(max-width:640px){
   .knowledge-mode-bar{align-items:stretch;flex-direction:column;}
   .knowledge-view-toggle{align-self:flex-start;}
-  .kg3d-canvas{height:355px;}
+  .kg3d-canvas{height:390px;}
   .kg3d-tools{right:7px;top:8px;gap:4px;}
   .kg3d-tools button{padding:3px 6px;min-width:29px;min-height:28px;}
   .kg3d-axis{top:51px;font-size:9px;}
