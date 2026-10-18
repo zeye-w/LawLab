@@ -15,7 +15,7 @@ test('unrelated concept labels remain legible and high-contrast mode removes mut
   assert.match(graphUi,/dim = !contrast\.matches/);
   // The canvas is decorative for assistive tech; every concept is a real, labelled button.
   assert.match(graphUi,/<canvas[^>]*aria-hidden="true"/);
-  assert.match(graphUi,/KNOWLEDGE_NODES\.map\(node => <button[^>]*aria-pressed=\{node\.id === selected\}/);
+  assert.match(graphUi,/concepts\.map\(node => <button[^>]*aria-pressed=\{node\.id === selected\}/);
 });
 
 test('selecting a contract risk does not force screen-reader focus into the full contract',()=>{
