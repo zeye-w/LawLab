@@ -9,6 +9,9 @@ export type ContractImportResult = {
   pages?:number;pageSpans?:ContractPageSpan[];integrity:ContractIntegrity
 };
 
+export type ContractImportProgress={stage:'reading'|'parsing'|'complete';format:ContractFormat;page?:number;totalPages?:number};
+export type ContractImportProgressListener=(progress:ContractImportProgress)=>void;
+
 export const MAX_CONTRACT_FILE_BYTES=8*1024*1024;
 export const MAX_CONTRACT_TEXT_CHARS=120000;
 export const MAX_CONTRACT_PDF_PAGES=80;
@@ -120,7 +123,7 @@ export function flattenPdfTextPages(parts:readonly string[]):{text:string;pageSp
   return {text:chunks.join(''),pageSpans};
 }
 
-async function extractPdf(data:Uint8Array):Promise<{
+async function extractPdf(data:Uint8Array,onProgress?:ContractImportProgressListener):Promise<{
   text:string;pages:number;warnings:string[];pageSpans:ContractPageSpan[];integrity:ContractIntegrity
 }>{
   const [{getDocument,GlobalWorkerOptions},{default:workerSrc}]=await Promise.all([
@@ -135,6 +138,7 @@ async function extractPdf(data:Uint8Array):Promise<{
   const parts:string[]=[],blank:number[]=[];let extractedChars=0;
   try{
     if(doc.numPages>MAX_CONTRACT_PDF_PAGES)throw new Error('PDF 超过 80 页的完整解析上限。请拆分文件，不会截断后直接审查。');
+    onProgress?.({stage:'parsing',format:'pdf',page:0,totalPages:doc.numPages});
     for(let i=1;i<=doc.numPages;i++){
       const page=await doc.getPage(i);
       const data=await page.getTextContent();
@@ -147,6 +151,7 @@ async function extractPdf(data:Uint8Array):Promise<{
         throw new Error('PDF 文字超过 12 万字符上限，已停止解析。请拆分文件后分别审查。');
       }
       page.cleanup();
+      onProgress?.({stage:'parsing',format:'pdf',page:i,totalPages:doc.numPages});
     }
   }finally{await doc.destroy();}
   if(blank.length===parts.length)throw new Error('PDF 没有足够的可提取文字，可能是扫描件。请先 OCR 再上传。');
@@ -155,16 +160,18 @@ async function extractPdf(data:Uint8Array):Promise<{
   return {text:flattened,pages:parts.length,warnings,pageSpans,
     integrity:blank.length?'needs-review':'complete'};
 }
-export async function importContractFile(file:File):Promise<ContractImportResult>{
+export async function importContractFile(file:File,onProgress?:ContractImportProgressListener):Promise<ContractImportResult>{
   const format=contractFormat(file.name);
   if(!file.size||file.size>MAX_CONTRACT_FILE_BYTES){
     throw new Error('仅支持大于 0 且不超过 8 MB 的合同文件。');
   }
+  onProgress?.({stage:'reading',format});
   const buffer=await file.arrayBuffer();
   const bytes=new Uint8Array(buffer);
   if(!validContractHeader(format,bytes.subarray(0,8))){
     throw new Error('文件内容与扩展名不符。请确认不是误命名的其他格式。');
   }
+  if(format!=='pdf')onProgress?.({stage:'parsing',format});
   let text='',pages:number|undefined,pageSpans:ContractPageSpan[]|undefined;
   let integrity:ContractIntegrity='complete';
   const warnings:string[]=[];
@@ -188,7 +195,7 @@ export async function importContractFile(file:File):Promise<ContractImportResult
       warnings.push('Word 格式、图片及修订痕迹不会参与规则筛查，请核对原件中的表格、批注和修订内容。');
       integrity='needs-review';
     }else{
-      const result=await extractPdf(bytes);
+      const result=await extractPdf(bytes,onProgress);
       text=result.text;pages=result.pages;pageSpans=result.pageSpans;
       integrity=result.integrity;warnings.push(...result.warnings);
     }
@@ -207,5 +214,6 @@ export async function importContractFile(file:File):Promise<ContractImportResult
       warnings.push('正文经过额外规范化，原 PDF 页码映射不可可靠还原；请核对原件。');
     }else{pageSpans=mapped;}
   }
+  onProgress?.({stage:'complete',format});
   return {name:file.name,format,text:validated,warnings,pages,pageSpans,integrity};
 }

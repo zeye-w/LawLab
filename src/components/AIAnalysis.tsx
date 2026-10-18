@@ -16,6 +16,7 @@ function uid():string{
 export function AIAnalysis({paper,setPaper,goToLogic}:Props){
   const [file,setFile]=useState<ExtractedPDF|null>(null);
   const [busy,setBusy]=useState(false);
+  const [progress,setProgress]=useState<{stage:'reading'|'analyzing';page?:number;totalPages?:number}|null>(null);
   const [accessCode,setAccessCode]=useState('');
   const [error,setError]=useState('');
   const [result,setResult]=useState<AnalysisReply|null>(null);
@@ -31,18 +32,18 @@ export function AIAnalysis({paper,setPaper,goToLogic}:Props){
   },[]);
   async function pickFile(event:ChangeEvent<HTMLInputElement>){
     const item=event.target.files?.[0];event.target.value='';
-    setResult(null);setAdded([]);setError('');setFile(null);
+    setResult(null);setAdded([]);setError('');setFile(null);setProgress(null);
     if(!item)return;
-    setBusy(true);
+    setBusy(true);setProgress({stage:'reading'});
     // pdf.js is large, so it is only downloaded once someone actually picks a PDF.
-    try{const {extractPdfPages}=await import('../lib/pdfExtract');setFile(await extractPdfPages(item));}
+    try{const {extractPdfPages}=await import('../lib/pdfExtract');setFile(await extractPdfPages(item,({page,totalPages})=>setProgress({stage:'reading',page,totalPages})));}
     catch(e){setError(e instanceof Error?e.message:'PDF 解析失败，请更换文件。');}
-    finally{setBusy(false);}
+    finally{setBusy(false);setProgress(null);}
   }
   async function analyze(){
     if(!file||busy)return;
     if(!accessCode.trim()){setError('请输入管理员提供的 AI 访问码。');return;}
-    setError('');setResult(null);setAdded([]);setBusy(true);
+    setError('');setResult(null);setAdded([]);setBusy(true);setProgress({stage:'analyzing'});
     try{
       const response=await fetch('/api/ai/analyze',{
         method:'POST',cache:'no-store',
@@ -62,7 +63,7 @@ export function AIAnalysis({paper,setPaper,goToLogic}:Props){
     }catch(e){
       setError(e instanceof SyntaxError?'AI API 尚未上线或返回了非 JSON 内容。请确认 Cloudflare Worker 已部署。':
         e instanceof Error?e.message:'AI 分析失败，请稍后重试。');
-    }finally{setBusy(false);}
+    }finally{setBusy(false);setProgress(null);}
   }
   function addClaim(claim:VerifiedClaim){
     if(!file||paper.references.length>=MAX_REFERENCES)return;
@@ -106,6 +107,17 @@ export function AIAnalysis({paper,setPaper,goToLogic}:Props){
           </button>
         </div>
       </div>
+      {busy&&<div className="work-progress" role="status" aria-live="polite" aria-busy="true">
+        <strong>{progress?.stage==='analyzing'
+          ?'正在等待 Cloudflare Workers AI 返回分析结果…'
+          :progress?.totalPages && progress.page!==undefined && progress.page>0
+            ?`正在读取第 ${progress.page}/${progress.totalPages} 页…`
+            :'正在准备 PDF 文字解析…'}</strong>
+        <p>{progress?.stage==='analyzing'
+          ?'模型正在生成候选观点，返回后还需要执行原文证据校验。当前接口不提供实时进度。'
+          :'仅在本机提取 PDF 文字；请保持当前页面开启。'}</p>
+        <div className="work-skeleton" aria-hidden="true"><span/><span/><span/></div>
+      </div>}
       {file&&<div className="ai-extraction-note"><ShieldAlert size={16}/> 当前原型最多分析前 12 页的部分文字，已提取约 {file.sampledCharacters.toLocaleString('zh-CN')} 字符；未覆盖全部页面时不能声称完成了全文分析。扫描版 PDF 尚不支持 OCR。</div>}
       {error&&<div className="paper-message paper-message-error" role="alert">{error}</div>}
       <div className="paper-note"><ShieldCheck size={16}/> 访问码不保存到浏览器持久化存储，服务端不应记录文献文本。公开站点必须先设置访问控制和费用额度；免费 Neurons 超限时请求可能失败。</div>

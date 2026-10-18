@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type ReactNode } from 'react';
 import { CheckCircle2, FileSearch, FileText, Search, ShieldCheck, Upload } from 'lucide-react';
-import { importContractFile } from '../../lib/contractImport';
+import { importContractFile, type ContractImportProgress } from '../../lib/contractImport';
 import type { ContractFinding } from '../../lib/contractRules';
 import {
   canAssessMissingClauses, currentReviewFindings, initialContractWorkspace, selectReviewFinding,
@@ -22,6 +22,7 @@ export function ContractWorkspace(){
   const [state,setState]=useState(initialContractWorkspace);
   const [uploadError,setUploadError]=useState('');
   const [importing,setImporting]=useState(false);
+  const [progress,setProgress]=useState<ContractImportProgress|null>(null);
   const source=state.source;
   const findings=currentReviewFindings(state);
   const current:ContractFinding|undefined=findings?.find(f=>f.id===state.selectedFindingId)??findings?.[0];
@@ -35,14 +36,14 @@ export function ContractWorkspace(){
     const file=event.target.files?.[0];
     event.target.value='';
     if(!file||importing)return;
-    setImporting(true);setUploadError('');
+    setImporting(true);setUploadError('');setProgress(null);
     try{
-      const imported=await importContractFile(file);
+      const imported=await importContractFile(file,setProgress);
       setState(old=>withImportedContract(old,imported));
     }catch(error){
       // Never replace the previous document with a partially decoded file.
       setUploadError(error instanceof Error?error.message:'文件读取失败，请更换文件。');
-    }finally{setImporting(false);}
+    }finally{setImporting(false);setProgress(null);}
   }
   return <>
     <div className="page-heading">
@@ -81,6 +82,13 @@ export function ContractWorkspace(){
           <button className="btn primary" disabled={!source.text.trim()||importing||source.integrity==='blocked'}
             onClick={()=>setState(withReviewedContract)}><Search size={16}/> 开始审查</button>
         </div>
+        {importing&&<div className="work-progress" role="status" aria-live="polite" aria-busy="true">
+          <strong>{progress?.stage==='parsing'&&progress.format==='pdf'&&progress.totalPages&&progress.page!==undefined&&progress.page>0
+            ?`正在读取第 ${progress.page}/${progress.totalPages} 页…`
+            :progress?.stage==='parsing'?'正在提取合同正文…':'正在读取合同文件…'}</strong>
+          <p>文件仅在浏览器中解析，不会上传服务器。</p>
+          <div className="work-skeleton" aria-hidden="true"><span/><span/><span/></div>
+        </div>}
         <div className="notice" role="status">
           <FileText size={17} aria-hidden="true"/>
           <div>
@@ -115,7 +123,7 @@ export function ContractWorkspace(){
             :<>
               <div className="findings-list">
                 {findings.map(f=><button key={f.id}
-                  className={'finding '+(current?.id===f.id?'finding-active':'')}
+                  className={'finding finding-enter '+(current?.id===f.id?'finding-active':'')} style={{animationDelay:`${Math.min(findings.indexOf(f),8)*45}ms`}}
                   onClick={()=>setState(old=>selectReviewFinding(old,f.id))}>
                   <span className={'risk-line risk-'+f.severity}/>
                   <span className="grow"><strong>{f.title}</strong>
