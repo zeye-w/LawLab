@@ -4,6 +4,9 @@ import type { ContractImportResult, ContractFormat, ContractPageSpan, ContractIn
 
 /** The canonical text is the only source for finding offsets; file bytes remain in memory only while parsing. */
 export type ContractOrigin = 'sample' | 'pasted' | 'uploaded' | 'edited';
+/** Separate source decoding completeness from whether all contractual clauses were provided.
+ * Only the fictional built-in demo is known to represent its entire supplied contract. */
+export type ContractDocumentScope = 'whole' | 'excerpt' | 'unknown';
 
 // crypto.randomUUID only exists in secure contexts (HTTPS/localhost); a LAN http preview must not crash.
 function newRevisionId():string{
@@ -20,6 +23,7 @@ export interface ContractSource {
   pages?: number;
   pageSpans?: ContractPageSpan[];
   integrity: ContractIntegrity;
+  documentScope: ContractDocumentScope;
   warnings: string[];
 }
 
@@ -40,7 +44,8 @@ export function createSource(
   options: Partial<Omit<ContractSource, 'revisionId' | 'text' | 'origin'>> = {},
   revisionId: string = newRevisionId()
 ): ContractSource {
-  return {revisionId,origin,text,integrity:options.integrity??'complete',warnings:[...(options.warnings??[])],
+  return {revisionId,origin,text,integrity:options.integrity??'complete',
+    documentScope:options.documentScope??'unknown',warnings:[...(options.warnings??[])],
     ...(options.name?{name:options.name}:{}),
     ...(options.format?{format:options.format}:{}),
     ...(options.pages!==undefined?{pages:options.pages}:{}),
@@ -49,7 +54,7 @@ export function createSource(
 }
 
 export function initialContractWorkspace(): ContractWorkspaceState {
-  return {source:createSource(SAMPLE_CONTRACT,'sample'),review:null,selectedFindingId:null};
+  return {source:createSource(SAMPLE_CONTRACT,'sample',{documentScope:'whole'}),review:null,selectedFindingId:null};
 }
 
 export function withImportedContract(
@@ -74,12 +79,24 @@ export function withEditedContract(state:ContractWorkspaceState,text:string):Con
 }
 
 export function withSampleContract(_state:ContractWorkspaceState):ContractWorkspaceState {
-  return {source:createSource(SAMPLE_CONTRACT,'sample'),review:null,selectedFindingId:null};
+  return {source:createSource(SAMPLE_CONTRACT,'sample',{documentScope:'whole'}),review:null,selectedFindingId:null};
+}
+
+/** User assertion about supplied material; resets review because missing-clause checks depend on it. */
+export function withDocumentScope(state:ContractWorkspaceState,documentScope:ContractDocumentScope):ContractWorkspaceState {
+  if(state.source.documentScope===documentScope)return state;
+  return {...state,source:{...state.source,documentScope},review:null,selectedFindingId:null};
+}
+
+/** A negative (missing-clause) finding requires both full document scope and trustworthy extraction. */
+export function canAssessMissingClauses(source:ContractSource):boolean {
+  return source.documentScope==='whole' && source.integrity==='complete';
 }
 
 export function withReviewedContract(state:ContractWorkspaceState):ContractWorkspaceState {
   if(state.source.integrity==='blocked'||!state.source.text.trim())return state;
-  const findings=reviewContract(state.source.text);
+  const results=reviewContract(state.source.text);
+  const findings=canAssessMissingClauses(state.source)?results:results.filter(f=>f.id!=='disputes');
   return {...state,review:{revisionId:state.source.revisionId,findings},
     selectedFindingId:findings[0]?.id??null};
 }
