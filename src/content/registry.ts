@@ -3,7 +3,7 @@ import { EVIDENCE } from '../data/cases.ts';
 import { INITIAL_EVENTS } from '../lib/timeline.ts';
 import { EVIDENCE_FACT_LINKS, PROOF_FACTS } from './seedCaseFacts.ts';
 import { CANDIDATE_LEGAL_SOURCES, CONCEPT_SOURCE_CANDIDATES } from './sourceCandidates.ts';
-import { CONTENT_SCHEMA_VERSION, type CaseRecord, type LegalContentRegistry, type LegalConceptRecord } from './schema.ts';
+import { CONTENT_SCHEMA_VERSION, type CaseRecord, type LegalContentRegistry, type LegalConceptRecord, type LegalSource } from './schema.ts';
 
 /** This first seed is fictional teaching data. No official legal source has been verified yet.
  * Preserve existing IDs through explicit legacyId mappings; no new legal claims are added. */
@@ -93,4 +93,17 @@ export function getCase(id: string, registry: LegalContentRegistry = LEGAL_CONTE
 }
 export function getConcept(id: string, registry: LegalContentRegistry = LEGAL_CONTENT_V1): LegalConceptRecord | undefined {
   return registry.concepts.find(item=>item.id===id||item.legacyId===id);
+}
+
+/** Read-only legal source candidates; status is not silently upgraded by selecting a concept. */
+export function getConceptSources(
+  id: string, registry: LegalContentRegistry = LEGAL_CONTENT_V1
+): LegalSource[] {
+  const concept=getConcept(id,registry);
+  if(!concept) return [];
+  const byId=new Map(registry.sources.map(source=>[source.id,source]));
+  return concept.sourceIds.flatMap(sourceId=>{
+    const source=byId.get(sourceId);
+    return source?[source]:[];
+  });
 }
