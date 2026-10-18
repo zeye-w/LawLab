@@ -1,0 +1,72 @@
+/* LawLab microinteractions: CSS-only visuals, no new animation runtime dependency. */
+@keyframes lawPageEnter { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:translateY(0); } }
+@keyframes lawCorrectPulse { 0%{transform:scale(1)} 45%{transform:scale(1.018)} 100%{transform:scale(1)} }
+@keyframes lawWrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 55%{transform:translateX(4px)} 78%{transform:translateX(-2px)} }
+@keyframes lawItemIn { from { opacity:0;transform:translateY(-10px); } to { opacity:1;transform:translateY(0); } }
+@keyframes lawItemOut { from { opacity:1;max-height:160px;transform:translateY(0); } to { opacity:0;max-height:0;transform:translateY(-8px); } }
+@keyframes lawSkeleton { from { background-position:100% 50%; } to { background-position:0% 50%; } }
+
+.content-enter { animation:lawPageEnter 210ms cubic-bezier(.2,.8,.2,1) both; }
+@supports (view-transition-name: none) {
+  .content-enter { animation:none; }
+  ::view-transition-old(root) { animation:145ms ease-out both fade-out-root; }
+  ::view-transition-new(root) { animation:205ms ease-out both lawPageEnter; }
+  @keyframes fade-out-root { from {opacity:1} to {opacity:0} }
+}
+
+/* A single interactive button with two visually distinct faces. Both
+   sides exist in the DOM; aria-hidden on the inactive side prevents duplicate speech. */
+.flash-card { display:block;padding:0;min-height:310px;perspective:1200px;overflow:visible;
+  border:0;box-shadow:none;background:transparent;color:inherit; }
+.flash-card:focus-visible { outline:3px solid #73a59b;outline-offset:4px; }
+.flash-card-inner { display:grid;position:relative;width:100%;min-height:310px;
+  transform-style:preserve-3d;transition:transform 460ms cubic-bezier(.2,.75,.2,1);border-radius:16px; }
+.flash-revealed .flash-card-inner { transform:rotateY(180deg); }
+/* Both faces share one grid cell, so the card grows to the taller face instead of clipping it. */
+.flash-face { grid-area:1/1;position:relative;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  border:1px solid #d6e6dc;border-radius:16px;padding:30px 34px;
+  box-shadow:0 12px 28px #365b4910;text-align:center;background:linear-gradient(145deg,#fff,#f0f6f3); }
+.flash-front { color:#34594d; }
+.flash-back { transform:rotateY(180deg);background:linear-gradient(140deg,#edf4f8,#fafdfc);
+  border-color:#aec8d5;color:#375a70; }
+.flash-card:hover .flash-face { border-color:#9ebfaf; }
+.flash-card .flash-face strong {font-size:clamp(18px,2.5vw,26px);max-width:660px;line-height:1.7;}
+.flash-card .flash-face .flash-hint {max-width:650px;}
+
+.choice-pulse { animation:lawCorrectPulse 320ms ease-out both; }
+.choice-shake { animation:lawWrongShake 310ms ease-out both; }
+.progress-track>div {transition:width 360ms cubic-bezier(.2,.75,.3,1);}
+.score-number {display:inline-block;min-width:1ch;text-align:center;font-variant-numeric:tabular-nums;
+  font-feature-settings:'tnum';color:#497869;}
+
+.timeline-row-enter { animation:lawItemIn 300ms cubic-bezier(.2,.8,.2,1) both; }
+.timeline-row-exit { animation:lawItemOut 180ms ease-in both;min-height:0;overflow:hidden;pointer-events:none; }
+.finding-enter { animation:lawItemIn 250ms ease-out backwards; }
+
+.work-progress {border:1px solid #dfebe6;background:#f8fbf9;border-radius:11px;
+  margin:14px 0;padding:15px 17px;color:#4b6c61;font-size:12px;line-height:1.65;}
+.work-progress strong {display:block;color:#41695a;font-size:12px;}
+.work-progress p {margin:4px 0 14px;color:#809388;font-size:11px;}
+.work-skeleton {display:flex;flex-direction:column;gap:9px;}
+.work-skeleton span {display:block;height:9px;border-radius:6px;
+  background:linear-gradient(100deg,#e8f0ec 25%,#f9fcfa 46%,#e8f0ec 68%);background-size:230% 100%;
+  animation:lawSkeleton 1.2s linear infinite;}
+.work-skeleton span:nth-child(2){width:84%;}
+.work-skeleton span:nth-child(3){width:61%;}
+
+@media(max-width:640px) {
+  .flash-card,.flash-card-inner {min-height:285px;}
+  .flash-face {padding:22px 17px;gap:15px;}
+}
+@media(prefers-reduced-motion:reduce){
+  .content-enter,.choice-pulse,.choice-shake,.timeline-row-enter,.timeline-row-exit,
+  .finding-enter,.work-skeleton span {animation:none!important;}
+  .progress-track>div,.flash-card-inner {transition:none!important;}
+  .timeline-row-exit {display:none;}
+  .flash-card-inner,.flash-revealed .flash-card-inner {transform:none!important;}
+  .flash-back {transform:none;display:none;}
+  .flash-revealed .flash-front {display:none;}
+  .flash-revealed .flash-back {display:flex;}
+  ::view-transition-old(root),::view-transition-new(root){animation:none!important;}
+}

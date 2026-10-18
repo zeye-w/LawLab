@@ -50,10 +50,21 @@ export function Flashcards() {
     </div>
     {current ? <section className="study-workspace">
       <div className="flash-top"><span className="eyebrow">{current.topic} / {String(Math.min(index,list.length-1)+1).padStart(2,'0')} / {list.length}</span><span className="muted tiny">{history[current.id]==='known'?'已掌握':history[current.id]==='again'?'待复习':'尚未标记'}</span></div>
-      <button className={`flash-card ${revealed?'flash-revealed':''}`} onClick={()=>setRevealed(v=>!v)} aria-pressed={revealed}>
-        <span className="flash-overline">{revealed?'ANSWER / 答案':'QUESTION / 想一想'}</span>
-        <strong>{revealed?current.back:current.front}</strong>
-        <span className="flash-hint">{revealed?current.context:'点击卡片查看答案'}</span>
+      <button key={current.id} className={`flash-card ${revealed?'flash-revealed':''}`}
+        onClick={()=>setRevealed(v=>!v)} aria-pressed={revealed}
+        aria-label={revealed?`答案：${current.back}。点击返回题目`:`题目：${current.front}。点击查看答案`}>
+        <span className="flash-card-inner">
+          <span className="flash-face flash-front" aria-hidden={revealed}>
+            <span className="flash-overline">QUESTION / 想一想</span>
+            <strong>{current.front}</strong>
+            <span className="flash-hint">点击卡片查看答案</span>
+          </span>
+          <span className="flash-face flash-back" aria-hidden={!revealed}>
+            <span className="flash-overline">ANSWER / 答案</span>
+            <strong>{current.back}</strong>
+            <span className="flash-hint">{current.context}</span>
+          </span>
+        </span>
       </button>
       <div className="flash-actions"><button className="btn outline" onClick={()=>goto(index-1)} disabled={index===0}><ArrowLeft size={16}/> 上一张</button>
         <div className="flash-grade"><button className="btn outline" onClick={()=>mark('again')} disabled={!revealed}>需复习</button><button className="btn primary" onClick={()=>mark('known')} disabled={!revealed}><Check size={16}/> 已掌握</button></div>

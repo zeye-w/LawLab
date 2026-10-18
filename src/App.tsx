@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronRight, CircleHelp, FileSearch,
@@ -31,6 +32,8 @@ function getHashPage(): ModuleId {
   const value = window.location.hash.slice(1) as ModuleId;
   return DEEP_LINKS.has(value) ? value : 'home';
 }
+// Animation marks are cleared on animationend, which never fires when motion is reduced, so don't set them then.
+function motionAllowed():boolean{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function useBrowserState<T>(key: string, initial: T): [T, (value: T | ((old: T) => T)) => void] {
   const [state, setState] = useState<T>(() => {
     try { const saved = localStorage.getItem(key); return saved ? JSON.parse(saved) as T : initial; } catch { return initial; }
@@ -128,7 +131,9 @@ function Court() {
   const phase = phases[step];
   const answer = answers[step];
   const completed = answers.every(value => value !== null);
-  function choose(index: number) { setAnswers(old => old.map((x,i) => i===step?index:x)); }
+  // Feedback animation belongs to the answer just given, not to every later visit of that step.
+  const [feedbackKey,setFeedbackKey] = useState<string|null>(null);
+  function choose(index: number) { setAnswers(old => old.map((x,i) => i===step?index:x)); if(motionAllowed())setFeedbackKey(`${role}-${step}-${index}`); }
   function reset(nextRole: 'plaintiff' | 'defendant' = role) { setRole(nextRole); setStep(0); setAnswers([null,null,null,null]); }
   return <>
     <PageHeading eyebrow="MODULE 01 / MOOT COURT" title="模拟法庭" description="围绕同一件虚构买卖合同纠纷，练习结构化陈述与证据质证。" right={<Pill tone="blue">情境演练</Pill>}/>
@@ -137,7 +142,7 @@ function Court() {
       <p>双方约定交付一批设备，买方已支付预付款。交付日期到来后，双方对是否已协商延期产生争议。以下演练仅检查论证策略，不预测裁判结果。</p>
       <div className="step-track">{phases.map((p,i)=><button title={`转到${p.title}`} aria-label={`转到第${i+1}阶段：${p.title}`} aria-current={i===step?'step':undefined} key={p.title} className={i===step?'current':answers[i]!==null?'done':''} onClick={()=>setStep(i)}><span>{answers[i]!==null?<Check size={14}/>:i+1}</span><small>{p.title}</small></button>)}</div>
       <div className="court-scene"><span className="court-scene-label">SESSION {String(step+1).padStart(2,'0')} / 04</span><Landmark size={46} strokeWidth={1.25}/><div>{phase.title}</div></div>
-      <h3 className="question">{phase.prompt}</h3><div className="choice-list">{phase.choices.map((opt,i)=><button key={i} className={`choice ${answer===i?'choice-selected':''}`} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt.label}</span>{answer===i&&<CheckCircle2 size={18}/>}</button>)}</div>
+      <h3 className="question">{phase.prompt}</h3><div className="choice-list">{phase.choices.map((opt,i)=><button key={i} className={`choice ${answer===i?'choice-selected':''} ${answer===i&&feedbackKey===`${role}-${step}-${i}`?(opt.emphasis==='good'?'choice-pulse':'choice-shake'):''}`} onAnimationEnd={e=>{if(e.target===e.currentTarget)setFeedbackKey(null);}} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt.label}</span>{answer===i&&<CheckCircle2 size={18}/>}</button>)}</div>
       {answer!==null && <div className={`feedback ${phase.choices[answer].emphasis==='good'?'positive':'caution'}`} role="status"><strong>即时反馈</strong><p>{phase.choices[answer].feedback}</p></div>}
       <div className="panel-actions"><button className="btn subtle" disabled={step===0} onClick={()=>setStep(s=>s-1)}><ArrowLeft size={16}/> 上一步</button><div className="action-side">{completed && <Pill tone="green">四个阶段已作答</Pill>}{step<3?<button className="btn primary" disabled={answer===null} onClick={()=>setStep(s=>s+1)}>下一阶段 <ArrowRight size={16}/></button>:<button className="btn outline" onClick={()=>reset()}><RotateCcw size={16}/> 重新演练</button>}</div></div>
     </section><Notice>这是预设情境反馈，不是真人法官或实时 AI。正式法律结论需结合适用法律、完整案卷和程序规则。</Notice></div>
@@ -189,12 +194,24 @@ function Quiz() {
   const [responses,setResponses] = useBrowserState<Array<number|null>>('lawlab.quiz.v1',[null,null,null,null,null]);
   const q = QUIZ[index], response=responses[index];
   const score = responses.reduce<number>((n,choice,i)=>n+(choice===QUIZ[i].answer?1:0),0);
+  const [displayScore,setDisplayScore] = useState(score);
+  const scoreAnimation = useRef<number|null>(null);
+  useEffect(()=>{
+    if(scoreAnimation.current!==null)cancelAnimationFrame(scoreAnimation.current);
+    const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduced){setDisplayScore(score);return;}
+    const start=performance.now(),duration=340,from=displayScore;
+    function frame(now:number){const t=Math.min((now-start)/duration,1);setDisplayScore(Math.round(from+(score-from)*(1-Math.pow(1-t,3))));if(t<1)scoreAnimation.current=requestAnimationFrame(frame);}
+    scoreAnimation.current=requestAnimationFrame(frame);
+    return ()=>{if(scoreAnimation.current!==null)cancelAnimationFrame(scoreAnimation.current);};
+  },[score]);
   const done = responses.every(answer=>answer!==null);
-  function choose(v:number){if(response===null)setResponses(old=>old.map((x,i)=>i===index?v:x));}
+  const [feedbackKey,setFeedbackKey] = useState<string|null>(null);
+  function choose(v:number){if(response===null){setResponses(old=>old.map((x,i)=>i===index?v:x));if(motionAllowed())setFeedbackKey(`${index}-${v}`);}}
   return <>
     <PageHeading eyebrow="MODULE 04 / LEGAL QUIZ" title="法学闯关" description="5 道原创情境练习，完成选择后查看对应的法律分析。" right={<Pill tone="green">本机记录进度</Pill>}/>
-    <div className="quiz-shell panel"><div className="quiz-bar"><span>QUESTION {String(index+1).padStart(2,'0')} / 05</span><span>答对 {score} 题</span></div><div className="progress-track"><div style={{width:`${(responses.filter(a=>a!==null).length/QUIZ.length)*100}%`}}/></div>
-      <Pill tone="blue">{q.topic}</Pill><h2 className="quiz-question">{q.stem}</h2><div className="choice-list">{q.options.map((opt,i)=>{const revealed=response!==null; const correct=revealed&&i===q.answer;const wrong=revealed&&i===response&&response!==q.answer;return <button disabled={revealed} key={i} className={`choice ${correct?'choice-correct':wrong?'choice-wrong':''}`} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt}</span>{correct&&<CheckCircle2 size={18}/>}</button>;})}</div>
+    <div className="quiz-shell panel"><div className="quiz-bar"><span>QUESTION {String(index+1).padStart(2,'0')} / 05</span><span>答对 <span className="score-number" aria-label={`答对 ${score} 题`}>{displayScore}</span> 题</span></div><div className="progress-track"><div style={{width:`${(responses.filter(a=>a!==null).length/QUIZ.length)*100}%`}}/></div>
+      <Pill tone="blue">{q.topic}</Pill><h2 className="quiz-question">{q.stem}</h2><div className="choice-list">{q.options.map((opt,i)=>{const revealed=response!==null; const correct=revealed&&i===q.answer;const wrong=revealed&&i===response&&response!==q.answer;return <button disabled={revealed} key={i} className={`choice ${correct?'choice-correct':wrong?'choice-wrong':''} ${response===i&&feedbackKey===`${index}-${i}`?(correct?'choice-pulse':wrong?'choice-shake':''):''}`} onAnimationEnd={e=>{if(e.target===e.currentTarget)setFeedbackKey(null);}} onClick={()=>choose(i)}><span className="choice-letter">{String.fromCharCode(65+i)}</span><span>{opt}</span>{correct&&<CheckCircle2 size={18}/>}</button>;})}</div>
       {response!==null&&<div className={`feedback ${response===q.answer?'positive':'caution'}`} role="status"><strong>{response===q.answer?'回答正确':'还需要再想想'}</strong><p>{q.explanation}</p></div>}
       {done&&<div className="quiz-summary"><strong>本轮完成 · {score}/{QUIZ.length}</strong><p>可以返回之前的题目复习解析，也可以清除进度重新练习。</p></div>}
       <div className="panel-actions"><button className="btn subtle" onClick={()=>setIndex(i=>Math.max(0,i-1))} disabled={index===0}><ArrowLeft size={16}/> 上一题</button><div className="action-side"><button className="btn ghost" onClick={()=>{setResponses(Array(QUIZ.length).fill(null));setIndex(0);}}><RotateCcw size={15}/> 重新开始</button><button className="btn primary" disabled={index===QUIZ.length-1||response===null} onClick={()=>setIndex(i=>i+1)}>下一题 <ArrowRight size={15}/></button></div></div>
@@ -208,24 +225,45 @@ function Timeline() {
   const [selectedId,setSelectedId] = useState('f1');
   const [showForm,setShowForm] = useState(false);
   const [draft,setDraft] = useState(EMPTY_EVENT);
+  const [lastAddedId,setLastAddedId] = useState<string|null>(null);
+  const [removingId,setRemovingId] = useState<string|null>(null);
+  useEffect(()=>{
+    if(!removingId)return;
+    const delay=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:180;
+    const timer=window.setTimeout(()=>{
+      setEvents(old=>old.filter(e=>e.id!==removingId));
+      setSelectedId('');setRemovingId(null);
+    },delay);
+    return ()=>window.clearTimeout(timer);
+  },[removingId,setEvents]);
   const shown = sortTimeline(events.filter(e=>filter==='全部'||e.type===filter));
   const current = shown.find(e=>e.id===selectedId) ?? shown[0];
-  function add(event:FormEvent<HTMLFormElement>){event.preventDefault();const dateOk=/^\d{4}-\d{2}-\d{2}$/.test(draft.date)&&!Number.isNaN(Date.parse(draft.date));if(!dateOk||!draft.title.trim())return; const item: TimelineEvent = {...draft, id:`user-${crypto.randomUUID()}`, title:draft.title.trim(), custom:true};setEvents(old=>[...old,item]);setFilter('全部');setSelectedId(item.id);setDraft(EMPTY_EVENT);setShowForm(false);}
-  function remove(id:string){setEvents(old=>old.filter(e=>e.id!==id));setSelectedId('');}
+  function add(event:FormEvent<HTMLFormElement>){event.preventDefault();const dateOk=/^\d{4}-\d{2}-\d{2}$/.test(draft.date)&&!Number.isNaN(Date.parse(draft.date));if(!dateOk||!draft.title.trim())return; const item: TimelineEvent = {...draft, id:`user-${crypto.randomUUID()}`, title:draft.title.trim(), custom:true};setEvents(old=>[...old,item]);if(motionAllowed())setLastAddedId(item.id);setFilter('全部');setSelectedId(item.id);setDraft(EMPTY_EVENT);setShowForm(false);}
+  function remove(id:string){if(!removingId)setRemovingId(id);}
   return <>
     <PageHeading eyebrow="MODULE 05 / CASE TIMELINE" title="案件时间线生成器" description="把零散事实变成可检索的案件脉络。支持新建节点、筛选与 CSV 导出。"/>
     <div className="toolbar timeline-toolbar"><div className="segmented">{(['全部','事实','程序'] as const).map(t=><button key={t} onClick={()=>setFilter(t)} className={filter===t?'selected':''}>{t==='全部'?'全部节点':`${t}时间线`}</button>)}</div><div className="toolbar-buttons"><button className="btn outline" onClick={()=>downloadText('lawlab-timeline.csv',timelineToCsv(sortTimeline(events)),'text/csv;charset=utf-8')}><ArrowDownToLine size={16}/> 导出 CSV</button><button className="btn primary" onClick={()=>setShowForm(value=>!value)}><Plus size={16}/> 添加事件</button></div></div>
     {showForm&&<form className="panel new-event" onSubmit={add}><div className="panel-head"><h2>添加时间节点</h2><button type="button" className="icon-button" aria-label="关闭" onClick={()=>setShowForm(false)}><X size={18}/></button></div><div className="form-grid"><label>事件日期<input required type="date" value={draft.date} onChange={e=>setDraft(old=>({...old,date:e.target.value}))}/></label><label>节点类型<select value={draft.type} onChange={e=>setDraft(old=>({...old,type:e.target.value as EventType}))}><option>事实</option><option>程序</option></select></label><label className="wide">事件标题<input required maxLength={80} value={draft.title} placeholder="例如：对方发出补充协议" onChange={e=>setDraft(old=>({...old,title:e.target.value}))}/></label><label className="wide">事件描述<textarea value={draft.detail} rows={2} onChange={e=>setDraft(old=>({...old,detail:e.target.value}))}/></label><label className="wide">关联证据<input value={draft.evidence} placeholder="例如：邮件、合同、转账凭证" onChange={e=>setDraft(old=>({...old,evidence:e.target.value}))}/></label></div><div className="form-actions"><button className="btn primary" type="submit">保存事件</button></div></form>}
-    <div className="layout-split timeline-layout"><div className="panel"><div className="panel-head"><h2>事件脉络</h2><span className="muted tiny">{shown.length} 个节点</span></div><div className="timeline-stream">{shown.length?shown.map(event=><button key={event.id} className={`timeline-row ${current?.id===event.id?'timeline-selected':''}`} onClick={()=>setSelectedId(event.id)}><span className={`timeline-rail ${event.type==='程序'?'rail-procedure':''}`}><span/></span><span className="timeline-body"><span className="timeline-date">{event.date} · {event.type}</span><strong>{event.title}</strong><small>{event.evidence||'尚无关联证据'}</small></span><ChevronRight size={16}/></button>):<Placeholder>这一类别还没有事件。可切换筛选或新增节点。</Placeholder>}</div></div>
-    <aside className="panel detail-panel"><div className="eyebrow">EVENT DETAILS</div>{current?<><div className="detail-top"><Pill tone={current.type==='事实'?'green':'blue'}>{current.type}节点</Pill>{current.custom&&<button className="btn danger-quiet" onClick={()=>remove(current.id)}><Trash2 size={15}/> 删除</button>}</div><div className="detail-date">{current.date}</div><h2>{current.title}</h2><div className="detail-section"><span>事件说明</span><p>{current.detail||'暂无描述'}</p></div><div className="detail-section"><span>关联证据</span><p>{current.evidence||'尚未填写'}</p></div></>:<Placeholder>请选择左侧事件。</Placeholder>}</aside></div>
+    <div className="layout-split timeline-layout"><div className="panel"><div className="panel-head"><h2>事件脉络</h2><span className="muted tiny">{shown.length} 个节点</span></div><div className="timeline-stream">{shown.length?shown.map(event=><button key={event.id} className={`timeline-row ${current?.id===event.id?'timeline-selected':''} ${lastAddedId===event.id?'timeline-row-enter':''} ${removingId===event.id?'timeline-row-exit':''}`} onAnimationEnd={e=>{if(e.target===e.currentTarget&&lastAddedId===event.id)setLastAddedId(null);}} onClick={()=>setSelectedId(event.id)}><span className={`timeline-rail ${event.type==='程序'?'rail-procedure':''}`}><span/></span><span className="timeline-body"><span className="timeline-date">{event.date} · {event.type}</span><strong>{event.title}</strong><small>{event.evidence||'尚无关联证据'}</small></span><ChevronRight size={16}/></button>):<Placeholder>这一类别还没有事件。可切换筛选或新增节点。</Placeholder>}</div></div>
+    <aside className="panel detail-panel"><div className="eyebrow">EVENT DETAILS</div>{current?<><div className="detail-top"><Pill tone={current.type==='事实'?'green':'blue'}>{current.type}节点</Pill>{current.custom&&<button className="btn danger-quiet" disabled={removingId===current.id} onClick={()=>remove(current.id)}><Trash2 size={15}/> 删除</button>}</div><div className="detail-date">{current.date}</div><h2>{current.title}</h2><div className="detail-section"><span>事件说明</span><p>{current.detail||'暂无描述'}</p></div><div className="detail-section"><span>关联证据</span><p>{current.evidence||'尚未填写'}</p></div></>:<Placeholder>请选择左侧事件。</Placeholder>}</aside></div>
     <Notice icon={ShieldCheck}>事件保存在当前浏览器的 localStorage。导出的 CSV 可能包含案件隐私信息，分享前请脱敏；演示节点不是实际法院记录。</Notice>
   </>;
 }
 export default function App(){
   const [page,setPage] = useState<ModuleId>(getHashPage);
   const [menuOpen,setMenuOpen] = useState(false);
+  const pageRef=useRef(page);
+  pageRef.current=page;
   useEffect(()=>{function onHashChange(){setPage(getHashPage());}window.addEventListener('hashchange',onHashChange);return()=>window.removeEventListener('hashchange',onHashChange);},[]);
-  function navigate(id:ModuleId){window.location.hash=id;setPage(id);setMenuOpen(false);window.scrollTo({top:0,behavior:'smooth'});}
+  function navigate(id:ModuleId){
+    if(pageRef.current===id){setMenuOpen(false);return;}
+    const move=()=>{pageRef.current=id;window.location.hash=id;setPage(id);setMenuOpen(false);};
+    const transitionDocument=document as Document & {startViewTransition?: (update:()=>void)=>{finished:Promise<void>}};
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&transitionDocument.startViewTransition){
+      transitionDocument.startViewTransition(()=>flushSync(move));
+    }else move();
+    window.scrollTo({top:0,behavior:'auto'});
+  }
   const pageLabels: Partial<Record<ModuleId,string>> = {home:'选择工作台',learn:'学生版',practice:'专业版',litigation:'诉讼业务',nonlit:'非诉业务'};
   const title=pageLabels[page]??MODULES.find(m=>m.id===page)?.label??'工作空间';
   function navItem(id:ModuleId, label:string, Icon:ModuleIcon){
@@ -253,7 +291,7 @@ export default function App(){
     <div className="sidebar-bottom"><div className="side-info"><BookOpen size={18}/><span><strong>学习与实践相连接</strong><small>双入口 · 共享分析能力</small></span></div><span className="version">V 0.2.1 · LOCAL DEMONSTRATION</span></div></aside>
     {menuOpen&&<button className="backdrop" aria-label="关闭菜单" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area"><header className="topbar"><button className="menu-toggle icon-button" aria-label="打开导航菜单" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><div className="breadcrumbs"><span>LAWLAB</span><ChevronRight size={14}/><strong>{title}</strong></div><div className="topbar-right"><span className="top-dot"/><span>本地保存 · 文献检索联网</span></div></header>
-      <main className="content" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractWorkspace/>}</main>
+      <main key={page} className="content content-enter" id="main-content">{page==='home'?<ModuleHome navigate={navigate}/>:page==='learn'||page==='practice'||page==='litigation'||page==='nonlit'?<Portal kind={page} navigate={navigate}/>:page==='flashcards'?<Flashcards/>:page==='knowledge'?<KnowledgeGraph/>:page==='paper'?<PaperWorkspace/>:page==='court'?<Court/>:page==='reasoning'?<Reasoning/>:page==='evidence'?<EvidenceLab/>:page==='quiz'?<Quiz/>:page==='timeline'?<Timeline/>:<ContractWorkspace/>}</main>
       <footer className="footer"><span>LAWLAB · LEARN THE LAW. PRACTICE THE LAW.</span><span>教学与流程演示 · 不构成法律意见</span></footer>
     </div>
   </div>;
