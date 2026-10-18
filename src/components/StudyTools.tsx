@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, CircleHelp, GitBranch, RotateCcw, Sparkles } from 'lucide-react';
 import { KNOWLEDGE_NODES, STUDY_CARDS, type StudyTopic } from '../data/study';
 import { linkedConceptIds } from '../lib/relationshipMaps';
 import { KnowledgeNetwork } from './KnowledgeNetwork';
+
+// Keep 3D math and drawing out of the bundle for other teaching modules.
+const KnowledgeNetwork3D = lazy(() => import('./KnowledgeNetwork3D').then(m => ({ default: m.KnowledgeNetwork3D })));
+
 import { Seal } from './Seal';
 
 type Recall = 'known' | 'again';
@@ -81,14 +85,25 @@ export function Flashcards() {
 }
 export function KnowledgeGraph() {
   const [selected, setSelected] = useState('relationship');
+  const [view, setView] = useState<'2d'|'3d'>('3d');
   const current = KNOWLEDGE_NODES.find(node=>node.id===selected) || KNOWLEDGE_NODES[0];
   const linked=linkedConceptIds(current.id);
   const related = KNOWLEDGE_NODES.filter(node=>node.id!==current.id&&linked.has(node.id));
   return <div>
     <div className="page-heading"><div><div className="eyebrow">LAWLAB LEARN / CONCEPT CONNECTIONS</div><h1>法律知识图谱</h1><p>从法律关系出发，点击概念节点，观察请求权、待证事实、证据及抗辩之间的联系。</p></div><span className="pill pill-green">互动概念地图</span></div>
     <section className="panel knowledge-panel">
-      <div className="knowledge-guide"><GitBranch size={18}/><span>选择任一节点。与当前节点直接相关的概念会被高亮。</span></div>
-      <KnowledgeNetwork selected={selected} onSelect={setSelected}/>
+      <div className="knowledge-mode-bar">
+        <div className="knowledge-guide"><GitBranch size={18}/><span>选择任一节点，查看直接关联的法律概念。</span></div>
+        <div className="knowledge-view-toggle" role="group" aria-label="知识图谱显示模式">
+          <button type="button" aria-pressed={view==='2d'} onClick={()=>setView('2d')}>2D 平面</button>
+          <button type="button" aria-pressed={view==='3d'} onClick={()=>setView('3d')}>3D 空间</button>
+        </div>
+      </div>
+      {view==='3d'
+        ?<Suspense fallback={<div className="kg3d-loading" role="status">正在加载三维概念网络…</div>}>
+          <KnowledgeNetwork3D selected={selected} onSelect={setSelected}/>
+        </Suspense>
+        :<KnowledgeNetwork selected={selected} onSelect={setSelected}/>}
     </section>
     <div className="layout-split knowledge-detail">
       <section className="panel"><div className="eyebrow">SELECTED CONCEPT</div><h2 className="knowledge-title">{current.title}</h2><p>{current.summary}</p><div className="knowledge-question"><Sparkles size={17}/><div><strong>思考问题</strong><p>{current.question}</p></div></div></section>
