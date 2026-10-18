@@ -4,20 +4,17 @@ import { KNOWLEDGE_POSITIONS, knowledgeEdges, linkedConceptIds } from '../lib/re
 import { GRAPH_DIM, coolAlpha, layoutBounds, settleLayout, stepLayout, type SimEdge, type SimNode } from '../lib/forceLayout';
 import './graphs.css';
 
-type Props = { selected: string; onSelect: (id: string) => void };
+type Props = { selected: string; onSelect: (id: string) => void; concepts?: typeof KNOWLEDGE_NODES };
 
 const CATEGORY_TOKEN: Record<string, string> = {
   '总览': '--kg-core', '民法': '--kg-civil', '证据法': '--kg-evidence', '法律方法': '--kg-method',
 };
-const DEGREE: Record<string, number> = Object.fromEntries(
-  KNOWLEDGE_NODES.map(n => [n.id, linkedConceptIds(n.id).size - 1]));
-const radius = (id: string) => 5 + DEGREE[id] * 1.6;
 
 type Visual = { fade: number; glow: number; phase: number };
 type View = { x: number; y: number; k: number };
 
 /** Canvas force-directed concept map; the node buttons below it are the accessible interface. */
-export function KnowledgeNetwork({ selected, onSelect }: Props) {
+export function KnowledgeNetwork({ selected, onSelect, concepts = KNOWLEDGE_NODES }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const selectedRef = useRef(selected);
@@ -35,16 +32,20 @@ export function KnowledgeNetwork({ selected, onSelect }: Props) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     const contrast = window.matchMedia('(prefers-contrast: more)');
     // Seed from the hand-made layout so every visit starts from the same, readable arrangement.
-    const nodes: SimNode[] = KNOWLEDGE_NODES.map(n => {
-      const p = KNOWLEDGE_POSITIONS[n.id] ?? { x: 450, y: 250 };
+    const isBranch = concepts.some(n => !KNOWLEDGE_NODES.some(root=>root.id===n.id));
+    const radius=(id:string)=>5+(linkedConceptIds(id,concepts).size-1)*1.6;
+    const nodes: SimNode[] = concepts.map((n,i) => {
+      const t = (i-1)*Math.PI*2/Math.max(1,concepts.length-1);
+      const p = isBranch ? {x:i===0?450:450+Math.cos(t)*238,y:i===0?250:250+Math.sin(t)*176}
+        : KNOWLEDGE_POSITIONS[n.id] ?? { x: 450, y: 250 };
       return { id: n.id, x: (p.x - 450) * 0.55, y: (p.y - 250) * 0.55, vx: 0, vy: 0 };
     });
     const index = new Map(nodes.map((n, i) => [n.id, i]));
-    const edges: (SimEdge & { k: number })[] = knowledgeEdges()
+    const edges: (SimEdge & { k: number })[] = knowledgeEdges(concepts)
       .map(e => ({ a: index.get(e.a)!, b: index.get(e.b)!, k: 0 }))
       .filter(e => e.a !== undefined && e.b !== undefined);
     const vis: Visual[] = nodes.map((_, i) => ({ fade: 1, glow: 0, phase: i * 1.7 }));
-    const titles = new Map(KNOWLEDGE_NODES.map(n => [n.id, n]));
+    const titles = new Map(concepts.map(n => [n.id, n]));
     settleLayout(nodes, edges);
 
     const css = getComputedStyle(wrap), token = (name: string) => css.getPropertyValue(name).trim();
@@ -76,7 +77,7 @@ export function KnowledgeNetwork({ selected, onSelect }: Props) {
     const active = () => drag ? nodes[drag.i].id : hover ?? focusRef.current ?? selectedRef.current;
 
     function draw(): boolean {
-      const fid = active(), near = linkedConceptIds(fid), dim = !contrast.matches;
+      const fid = active(), near = linkedConceptIds(fid,concepts), dim = !contrast.matches;
       let changing = false;
       nodes.forEach((n, i) => {
         const v = vis[i], lit = near.has(n.id);
@@ -193,7 +194,7 @@ export function KnowledgeNetwork({ selected, onSelect }: Props) {
       canvas.removeEventListener('pointerleave', onLeave); canvas.removeEventListener('touchstart', onTouch);
       canvas.removeEventListener('wheel', onWheel); api.current = null;
     };
-  }, []);
+  }, [concepts]);
 
   return <div className="knowledge-graph-wrap" ref={wrapRef}>
     <div className="kg-stage">
@@ -207,7 +208,7 @@ export function KnowledgeNetwork({ selected, onSelect }: Props) {
       <p className="kg-hint" aria-hidden="true">拖动节点 · Ctrl/⌘ + 滚轮缩放 · 点击查看</p>
     </div>
     <div className="kg-node-list" role="group" aria-label="法律概念：选择一个查看直接关联的概念">
-      {KNOWLEDGE_NODES.map(node => <button key={node.id} type="button" aria-pressed={node.id === selected}
+      {concepts.map(node => <button key={node.id} type="button" aria-pressed={node.id === selected}
         className={'kg-chip kg-chip-' + (CATEGORY_TOKEN[node.category] ?? '--kg-core').slice(5)}
         onClick={() => onSelect(node.id)} onMouseEnter={() => setFocusId(node.id)} onMouseLeave={() => setFocusId(null)}
         onFocus={() => setFocusId(node.id)} onBlur={() => setFocusId(null)}>

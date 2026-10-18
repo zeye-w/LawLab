@@ -12,8 +12,10 @@ const read = (path: string) => readFileSync(new URL('../'+path, import.meta.url)
 
 test('canonical Registry drives legacy graph without a duplicated authored node array',()=>{
   assert.deepEqual(KNOWLEDGE_NODES,legacyConceptView());
-  assert.equal(KNOWLEDGE_NODES.length,SEED_KNOWLEDGE_NODES.length);
-  assert.equal(KNOWLEDGE_NODES.length,LEGAL_CONTENT_V1.concepts.length);
+  assert.equal(KNOWLEDGE_NODES.length,9);
+  assert.equal(SEED_KNOWLEDGE_NODES.length,LEGAL_CONTENT_V1.concepts.length);
+  assert.equal(LEGAL_CONTENT_V1.concepts.length,20);
+  assert.ok(KNOWLEDGE_NODES.every(n=>!getConcept(n.id)?.parentId));
   const source=read('src/data/study.ts');
   const registry=read('src/content/registry.ts');
   assert.match(source,/KNOWLEDGE_NODES: KnowledgeNode\[\] = legacyConceptView\(\)/);

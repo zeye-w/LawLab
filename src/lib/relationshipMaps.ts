@@ -17,10 +17,10 @@ export const KNOWLEDGE_POSITIONS:Record<string,Point>={
 };
 
 export type ConceptEdge={id:string;a:string;b:string};
-export function knowledgeEdges():ConceptEdge[]{
-  const ids=new Set(KNOWLEDGE_NODES.map(node=>node.id));
+export function knowledgeEdges(nodes: readonly Pick<(typeof KNOWLEDGE_NODES)[number], 'id'|'related'>[] = KNOWLEDGE_NODES):ConceptEdge[]{
+  const ids=new Set(nodes.map(node=>node.id));
   const edges=new Map<string,ConceptEdge>();
-  for(const node of KNOWLEDGE_NODES)for(const other of node.related){
+  for(const node of nodes)for(const other of node.related){
     if(!ids.has(other)||other===node.id)continue;
     const [a,b]=[node.id,other].sort();
     const id=a+'--'+b;
@@ -28,9 +28,9 @@ export function knowledgeEdges():ConceptEdge[]{
   }
   return [...edges.values()];
 }
-export function linkedConceptIds(id:string):Set<string>{
+export function linkedConceptIds(id:string, nodes: readonly Pick<(typeof KNOWLEDGE_NODES)[number], 'id'|'related'>[] = KNOWLEDGE_NODES):Set<string>{
   const linked=new Set<string>([id]);
-  for(const edge of knowledgeEdges()){
+  for(const edge of knowledgeEdges(nodes)){
     if(edge.a===id)linked.add(edge.b);
     if(edge.b===id)linked.add(edge.a);
   }

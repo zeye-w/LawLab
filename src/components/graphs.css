@@ -47,6 +47,14 @@
 @media(prefers-reduced-motion:reduce){
   .knowledge-view-toggle button,.kg3d-tools button{transition:none!important;animation:none!important;}
 }
+/* Progressive concept exploration preserves the overall graph's readability. */
+.knowledge-branch-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;border:1px solid #e0e9e3;background:#f7faf8;border-radius:10px;padding:8px 11px;}
+.knowledge-branch-nav button{border:0;background:transparent;color:#386e59;font:inherit;font-size:13px;font-weight:680;cursor:pointer;padding:4px 6px;border-radius:6px;}
+.knowledge-branch-nav button:focus-visible,.knowledge-expand:focus-visible{outline:2px solid #528a75;outline-offset:2px;}
+.knowledge-branch-nav span{font-size:12px;color:#718579;}
+.knowledge-expand{display:inline-flex;align-items:center;gap:7px;margin-top:14px;}
+@media(max-width:640px){.knowledge-branch-nav{flex-direction:column;align-items:flex-start;}}
+
 /* Registry-backed authority references: readable, editorially unverified by default. */
 .knowledge-authorities{margin-top:15px;}
 .knowledge-authority-context{font-size:12px!important;color:#6c8076!important;line-height:1.7!important;margin:4px 0 12px!important;}

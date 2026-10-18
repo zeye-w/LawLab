@@ -1,4 +1,4 @@
-import { SEED_KNOWLEDGE_NODES } from './seedConcepts.ts';
+import { SEED_KNOWLEDGE_NODES, type KnowledgeNode } from './seedConcepts.ts';
 import { EVIDENCE } from '../data/cases.ts';
 import { INITIAL_EVENTS } from '../lib/timeline.ts';
 import { EVIDENCE_FACT_LINKS, PROOF_FACTS } from './seedCaseFacts.ts';
@@ -16,6 +16,7 @@ const conceptId = (id: string) => 'concept:cn:' + id;
 const concepts: LegalConceptRecord[] = SEED_KNOWLEDGE_NODES.map(node => ({
   id:conceptId(node.id),
   legacyId:node.id,
+  parentId:node.parentId ? conceptId(node.parentId) : undefined,
   title:node.title,
   category:node.category,
   jurisdiction:'CN',
@@ -80,7 +81,7 @@ export const LEGAL_CONTENT_V1: LegalContentRegistry = {
 
 /** Read-only adapters for gradual migration, including the current 2D/3D graph and case widgets. */
 export function legacyConceptView(registry: LegalContentRegistry = LEGAL_CONTENT_V1) {
-  return registry.concepts.filter(n=>n.legacyId).map(n=>({
+  return registry.concepts.filter(n=>n.legacyId && !n.parentId).map(n=>({
     id:n.legacyId!,title:n.title,category:n.category,
     summary:n.explanation,question:n.learningQuestion,
     related:n.relatedConceptIds.map(id=>
@@ -106,4 +107,36 @@ export function getConceptSources(
     const source=byId.get(sourceId);
     return source?[source]:[];
   });
+}
+
+/** Authoritative hierarchy selector. Parent/child navigation is independent of
+ * semantic cross-links; legacy top-level layout stays exactly nine nodes. */
+export function getConceptChildren(
+  parentId: string, registry: LegalContentRegistry = LEGAL_CONTENT_V1
+): LegalConceptRecord[] {
+  const parent=getConcept(parentId,registry);
+  if(!parent)return [];
+  return registry.concepts.filter(item=>item.parentId===parent.id);
+}
+
+/** Small star-shaped branch graph for both 2D and 3D; no extra nodes in overview.
+ * Stable legacy IDs remain the keys used by existing graph layouts and buttons. */
+export function knowledgeBranchNodes(
+  parentId: string, registry: LegalContentRegistry = LEGAL_CONTENT_V1
+): KnowledgeNode[] {
+  const parent=getConcept(parentId,registry);
+  if(!parent?.legacyId)return [];
+  const children=getConceptChildren(parent.id,registry).filter(n=>n.legacyId);
+  const convert=(n:LegalConceptRecord,related:string[]):KnowledgeNode=>({
+    id:n.legacyId!,
+    title:n.title,
+    category:n.category as KnowledgeNode['category'],
+    summary:n.explanation,
+    question:n.learningQuestion,
+    related
+  });
+  return [
+    convert(parent,children.map(n=>n.legacyId!)),
+    ...children.map(child=>convert(child,[parent.legacyId!]))
+  ];
 }
