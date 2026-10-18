@@ -47,6 +47,15 @@ export function validateContent(data: LegalContentRegistry): ContentDiagnostic[]
     const p='concepts['+i+']';
     addId(c.id,p+'.id');nonempty(c.title,p+'.title');nonempty(c.explanation,p+'.explanation');
     editorial(c.editorial,p+'.editorial');
+    if(c.parentId) {
+      const parent=concepts.get(c.parentId);
+      if(!parent || parent.id===c.id) fail('DANGLING_PARENT',p+'.parentId',String(c.parentId));
+      else {
+        if(parent.parentId)fail('HIERARCHY_DEPTH',p+'.parentId','当前 P1 仅允许两级结构');
+        if(parent.jurisdiction!==c.jurisdiction)fail('PARENT_JURISDICTION',p+'.parentId','上下级概念法域不一致');
+        if(parent.category!==c.category)fail('PARENT_CATEGORY',p+'.parentId','上下级概念分类不一致');
+      }
+    }
     if(new Set(c.relatedConceptIds).size!==c.relatedConceptIds.length)
       fail('DUPLICATE_LINK',p+'.relatedConceptIds','关联概念重复');
     for(const other of c.relatedConceptIds){
