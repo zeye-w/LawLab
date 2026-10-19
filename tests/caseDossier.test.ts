@@ -131,10 +131,18 @@ test('proof graph uses compact evidence labels that fit their node box',()=>{
   assert.match(graph,/<title>\{e\.title\}/,'full title kept in the tooltip');
 });
 
-test('case library is reachable from both learning and practice navigation',()=>{
+test('case library navigation is exclusive to practice and absent from student tools',()=>{
   const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
-  for(const label of ['学生版导航','专业版导航']){
-    const nav=app.slice(app.indexOf(`aria-label="${label}"`)); const block=nav.slice(0,nav.indexOf('</nav>'));
-    assert.match(block,/navItem\('casebook','案例资料库'/,label);
-  }
+  const navBlock=(label:string)=>{
+    const index=app.indexOf(`aria-label="${label}"`);
+    assert.ok(index>=0,label+' nav must exist');
+    const rest=app.slice(index);
+    return rest.slice(0,rest.indexOf('</nav>'));
+  };
+  assert.doesNotMatch(navBlock('学生版导航'),/navItem\('casebook','案例资料库'/);
+  assert.match(navBlock('专业版导航'),/navItem\('casebook','案例资料库'/);
+  const studentTools=app.match(/learn:\[([^\]]+)\]/)?.[1]??'';
+  const litigationTools=app.match(/litigation:\[([^\]]+)\]/)?.[1]??'';
+  assert.doesNotMatch(studentTools,/'casebook'/);
+  assert.match(litigationTools,/'casebook'/);
 });

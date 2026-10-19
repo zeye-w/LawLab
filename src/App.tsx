@@ -101,7 +101,7 @@ function ModuleHome({ navigate }: { navigate: (id: ModuleId) => void }) {
   </>;
 }
 const PORTAL_TOOLS: Record<'learn'|'litigation'|'nonlit',ToolId[]> = {
-  learn:['casebook','flashcards','knowledge','paper','quiz','reasoning','court'],
+  learn:['flashcards','knowledge','paper','quiz','reasoning','court'],
   litigation:['casebook','evidence','timeline','reasoning','court'],
   nonlit:['contracts']
 };
@@ -296,7 +296,6 @@ export default function App(){
     <div className="sidebar-group"><span className="side-heading">总览</span>{navItem('home','选择工作台',LayoutGrid)}</div>
     <nav className="sidebar-group" aria-label="学生版导航"><span className="side-heading">学生版 · LEARN</span>
       {navItem('learn','学习空间',GraduationCap)}
-      {navItem('casebook','案例资料库',FileText)}
       {navItem('flashcards','记忆卡片',BrainCircuit)}
       {navItem('knowledge','知识图谱',Layers3)}
       {navItem('paper','论文写作',NotebookPen)}
