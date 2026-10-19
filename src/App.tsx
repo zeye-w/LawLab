@@ -11,7 +11,7 @@ import { ContractWorkspace } from './components/contracts/ContractWorkspace';
 import { EvidenceProofGraph } from './components/EvidenceProofGraph';
 import { CaseDossier } from './components/CaseDossier';
 import { getTeachingCase } from './content/registry';
-import { INITIAL_EVENTS, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
+import { INITIAL_EVENTS, migrateSeedEvents, sortTimeline, timelineToCsv, type EventType, type TimelineEvent } from './lib/timeline';
 import { Flashcards, KnowledgeGraph } from './components/StudyTools';
 import { PaperWorkspace } from './components/PaperWorkspace';
 import { Seal } from './components/Seal';
@@ -40,9 +40,9 @@ function getHashPage(): ModuleId {
 }
 // Animation marks are cleared on animationend, which never fires when motion is reduced, so don't set them then.
 function motionAllowed():boolean{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-function useBrowserState<T>(key: string, initial: T): [T, (value: T | ((old: T) => T)) => void] {
+function useBrowserState<T>(key: string, initial: T, migrate: (saved: T) => T = saved => saved): [T, (value: T | ((old: T) => T)) => void] {
   const [state, setState] = useState<T>(() => {
-    try { const saved = localStorage.getItem(key); return saved ? JSON.parse(saved) as T : initial; } catch { return initial; }
+    try { const saved = localStorage.getItem(key); return saved ? migrate(JSON.parse(saved) as T) : initial; } catch { return initial; }
   });
   useEffect(() => { try { localStorage.setItem(key, JSON.stringify(state)); } catch { /* storage may be unavailable */ } }, [key, state]);
   return [state, setState];
@@ -229,7 +229,7 @@ function Quiz() {
 }
 const EMPTY_EVENT = { date: '', title:'', type: '事实' as EventType, detail:'', evidence:'' };
 function Timeline() {
-  const [events,setEvents] = useBrowserState<TimelineEvent[]>('lawlab.timeline.v1',INITIAL_EVENTS);
+  const [events,setEvents] = useBrowserState<TimelineEvent[]>('lawlab.timeline.v1',INITIAL_EVENTS,migrateSeedEvents);
   const [filter,setFilter] = useState<'全部' | EventType>('全部');
   const [selectedId,setSelectedId] = useState('f1');
   const [showForm,setShowForm] = useState(false);
@@ -307,6 +307,7 @@ export default function App(){
     <nav className="sidebar-group" aria-label="专业版导航"><span className="side-heading">专业版 · PRACTICE</span>
       {navItem('practice','实务工作台',BriefcaseBusiness)}
       {navItem('litigation','诉讼业务',Landmark)}
+      {navItem('casebook','案例资料库',FileText)}
       {navItem('evidence','证据链实验室',Network)}
       {navItem('timeline','案件时间线',CalendarDays)}
       {navItem('nonlit','非诉业务',FileText)}

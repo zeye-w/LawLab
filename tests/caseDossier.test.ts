@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { getTeachingCase, LEGAL_CONTENT_V1 } from '../src/content/registry.ts';
 import { EQUIPMENT_CASE_KEY } from '../src/content/seedEquipmentCase.ts';
 import { EVIDENCE } from '../src/data/cases.ts';
-import { INITIAL_EVENTS } from '../src/lib/timeline.ts';
+import { INITIAL_EVENTS, LEGACY_SEED_EVENTS, migrateSeedEvents } from '../src/lib/timeline.ts';
 import { EVIDENCE_FACT_LINKS,PROOF_FACTS } from '../src/content/seedCaseFacts.ts';
 import { assertValidContent, validateContent } from '../src/content/validate.ts';
 
@@ -98,9 +98,43 @@ test('case library and four case workspaces share the same dossier without overr
   assert.match(app,/<Reasoning\/>/);
   assert.match(app,/<EvidenceLab\/>/);
   assert.match(app,/<Timeline\/>/);
-  assert.match(app,/useBrowserState<TimelineEvent\[]>\('lawlab.timeline.v1',INITIAL_EVENTS\)/);
+  assert.match(app,/useBrowserState<TimelineEvent\[]>\('lawlab.timeline.v1',INITIAL_EVENTS,migrateSeedEvents\)/);
   assert.match(dossier,/getTeachingCase\(\)/);
   assert.match(dossier,/<details key=\{doc\.id\}/);
   assert.match(dossier,/aria-label="同一案件跨模块分析"/);
   assert.match(dossier,/全部当事人、文书、日期、数字和诉讼过程均为虚构/);
+});
+
+test('untouched legacy seed timeline events adopt canonical wording; learner edits are kept',()=>{
+  const edited={...LEGACY_SEED_EVENTS[1],detail:'我改过的说明'};
+  const custom={id:'u1',date:'2025-06-01',title:'自建节点',type:'事实' as const,detail:'',evidence:'',custom:true};
+  const saved=[{...LEGACY_SEED_EVENTS[0]},edited,{...LEGACY_SEED_EVENTS[2]},custom];
+  const migrated=migrateSeedEvents(saved);
+  assert.deepEqual(migrated[0],INITIAL_EVENTS.find(e=>e.id==='f1'));
+  assert.deepEqual(migrated[1],edited,'edited seed event must stay as saved');
+  assert.deepEqual(migrated[2],INITIAL_EVENTS.find(e=>e.id==='f3'));
+  assert.deepEqual(migrated[3],custom);
+  assert.equal(migrated.length,saved.length,'deleted seed events are not re-added');
+  assert.deepEqual(migrateSeedEvents(INITIAL_EVENTS),INITIAL_EVENTS,'already-current data is unchanged');
+  assert.deepEqual(LEGACY_SEED_EVENTS.map(e=>e.id),INITIAL_EVENTS.map(e=>e.id));
+  const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
+  assert.match(app,/useBrowserState<TimelineEvent\[\]>\('lawlab\.timeline\.v1',INITIAL_EVENTS,migrateSeedEvents\)/);
+});
+
+test('proof graph uses compact evidence labels that fit their node box',()=>{
+  for(const e of EVIDENCE){
+    assert.ok(e.shortTitle.length<=8,e.shortTitle);
+    assert.ok(e.title.startsWith(e.shortTitle.slice(0,2)),'short label stays recognisable: '+e.shortTitle);
+  }
+  const graph=readFileSync(new URL('../src/components/EvidenceProofGraph.tsx',import.meta.url),'utf8');
+  assert.match(graph,/\{e\.shortTitle\}<\/text>/);
+  assert.match(graph,/<title>\{e\.title\}/,'full title kept in the tooltip');
+});
+
+test('case library is reachable from both learning and practice navigation',()=>{
+  const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
+  for(const label of ['学生版导航','专业版导航']){
+    const nav=app.slice(app.indexOf(`aria-label="${label}"`)); const block=nav.slice(0,nav.indexOf('</nav>'));
+    assert.match(block,/navItem\('casebook','案例资料库'/,label);
+  }
 });

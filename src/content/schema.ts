@@ -49,6 +49,8 @@ export type CaseEvidence = {
   id: string;
   legacyId?: string;
   title: string;
+  /** Compact label for diagrams; the full title stays in lists and tooltips. */
+  shortTitle?: string;
   format: string;
   proposedPurpose: string;
   verificationNotes: string;

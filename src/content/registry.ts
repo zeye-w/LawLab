@@ -46,7 +46,7 @@ const caseRecord: CaseRecord = {
     sourceIds:[]
   }],
   evidence:CASE_SEED.evidence.map(e=>({
-    id:evidenceId(e.id),legacyId:e.id,title:e.title,format:e.type,
+    id:evidenceId(e.id),legacyId:e.id,title:e.title,shortTitle:e.shortTitle,format:e.type,
     proposedPurpose:e.purpose,verificationNotes:e.caveat,authenticity:'unverified'
   })),
   links:Object.entries(EVIDENCE_FACT_LINKS).flatMap(([evidence, facts])=>

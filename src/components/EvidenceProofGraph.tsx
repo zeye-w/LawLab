@@ -37,7 +37,7 @@ export function EvidenceProofGraph({selected,onToggle}:Props){
             onKeyDown={ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();onToggle(e.id);}}}>
             <title>{e.title}；可能关联：{(EVIDENCE_FACT_LINKS[e.id]||[]).map(id=>PROOF_FACTS.find(f=>f.id===id)?.title).join('、')}</title>
             <rect x="-110" y="-30" width="220" height="60" rx="11"/>
-            <text textAnchor="middle" y="5">{e.title}</text>
+            <text textAnchor="middle" y="5">{e.shortTitle}</text>
           </g>;
         })}
       </g>

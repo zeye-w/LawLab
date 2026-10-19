@@ -28,11 +28,12 @@ export const COURT_PHASES: CourtPhase[] = [
     { label: '把尚无证据的细节也说成确定事实', feedback: '法律实务中需要清楚区分主张、证据与事实认定。', emphasis: 'consider' }
   ] }
 ];
-export type Evidence = { id: string; title: string; type: string; purpose: string; caveat: string };
+export type Evidence = { id: string; title: string; shortTitle: string; type: string; purpose: string; caveat: string };
 /** Legacy UI view backed by the one canonical fictional case Registry. */
 export const EVIDENCE: Evidence[] = getTeachingCase().evidence.map(item=>({
   id:item.legacyId ?? item.id,
   title:item.title,
+  shortTitle:item.shortTitle ?? item.title,
   type:item.format,
   purpose:item.proposedPurpose,
   caveat:item.verificationNotes
