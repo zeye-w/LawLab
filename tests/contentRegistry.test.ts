@@ -45,7 +45,11 @@ test('single fictional case reuses legacy evidence/fact/chronology IDs without a
   assert.deepEqual(c.events.map(e=>e.legacyId),INITIAL_EVENTS.map(e=>e.id));
   assert.equal(c.facts.length,PROOF_FACTS.length);
   assert.equal(c.links.length,Object.values(EVIDENCE_FACT_LINKS).reduce((n,ids)=>n+ids.length,0));
-  assert.ok(c.events.every(e=>e.evidenceIds.length===0&&!!e.legacyEvidenceDescription));
+  assert.ok(c.events.every(e=>!!e.legacyEvidenceDescription));
+  assert.ok(c.events.some(e=>e.evidenceIds.length>0),'explicit case links for illustrative documents');
+  assert.equal(c.documents.length,7);
+  assert.equal(c.positions.length,2);
+  assert.ok(c.documents.every(d=>d.context&&d.excerpt));
   assert.ok(c.evidence.every(e=>e.authenticity==='unverified'));
   assert.ok(c.facts.every(f=>f.assessment==='unassessed'));
 });

@@ -49,6 +49,8 @@ export type CaseEvidence = {
   id: string;
   legacyId?: string;
   title: string;
+  /** Compact label for diagrams; the full title stays in lists and tooltips. */
+  shortTitle?: string;
   format: string;
   proposedPurpose: string;
   verificationNotes: string;
@@ -72,6 +74,25 @@ export type CaseEvent = {
   evidenceIds: string[]; // candidate association, not proof
   legacyEvidenceDescription?: string;
 };
+/** Fictional excerpts are editorial teaching materials, never evidence originals.
+ * Legacy evidence/event identifiers resolve only within their owning case. */
+export type CaseDocument = {
+  id: string;
+  title: string;
+  kind: 'contract' | 'financial' | 'communication' | 'logistics' | 'pleading';
+  date: string;
+  author: string;
+  excerpt: string;
+  context: string;
+  evidenceIds: string[];
+  eventIds: string[];
+};
+export type CasePosition = {
+  id: string;
+  party: string;
+  stance: string;
+  disputedFactIds: string[];
+};
 export type CaseRecord = {
   id: string;
   title: string;
@@ -79,6 +100,8 @@ export type CaseRecord = {
   nature: 'fictional';
   synopsis: string;
   parties: string[];
+  documents: CaseDocument[];
+  positions: CasePosition[];
   editorial: Editorial;
   issues: CaseIssue[];
   facts: CaseFact[];

@@ -1,3 +1,4 @@
+import { getTeachingCase } from '../content/registry.ts';
 export type QuizQuestion = { id: string; topic: string; stem: string; options: string[]; answer: number; explanation: string };
 export const QUIZ: QuizQuestion[] = [
   { id: 'q1', topic: '证据分析', stem: '在买卖合同纠纷中，证明买方已经付款，哪份材料通常最直接相关？', options: ['买方营业执照', '与该笔交易对应的银行转账记录', '卖方公司的宣传海报', '双方办公地点照片'], answer: 1, explanation: '银行转账记录通常直接指向付款事实，但仍需核对收款方、金额、时间和交易关联。' },
@@ -27,13 +28,17 @@ export const COURT_PHASES: CourtPhase[] = [
     { label: '把尚无证据的细节也说成确定事实', feedback: '法律实务中需要清楚区分主张、证据与事实认定。', emphasis: 'consider' }
   ] }
 ];
-export type Evidence = { id: string; title: string; type: string; purpose: string; caveat: string };
-export const EVIDENCE: Evidence[] = [
-  { id: 'contract', title: '双方签署的合同', type: '书证', purpose: '支持交易关系、付款与交付约定', caveat: '需确认签章、版本、条款及是否后续变更。' },
-  { id: 'transfer', title: '银行转账记录', type: '电子数据 / 书面记录', purpose: '支持买方曾付款的主张', caveat: '需核对收款账户及转账与本次交易的对应关系。' },
-  { id: 'messages', title: '聊天截图', type: '电子数据', purpose: '可能说明双方对交付期限的协商', caveat: '来源、完整上下文与双方身份有待核实。' },
-  { id: 'delivery', title: '物流签收单', type: '书证 / 电子数据', purpose: '可能支持卖方曾安排或完成交付', caveat: '签收主体、货物对应关系与实际交付内容需要核查。' }
-];
+export type Evidence = { id: string; title: string; shortTitle: string; type: string; purpose: string; caveat: string };
+/** Legacy UI view backed by the one canonical fictional case Registry. */
+export const EVIDENCE: Evidence[] = getTeachingCase().evidence.map(item=>({
+  id:item.legacyId ?? item.id,
+  title:item.title,
+  shortTitle:item.shortTitle ?? item.title,
+  type:item.format,
+  purpose:item.proposedPurpose,
+  caveat:item.verificationNotes
+}));
+
 export const DEFENDANT_PHASES: CourtPhase[] = [
   { title: '开庭陈述', prompt: '你是被告代理人。原告称付款后未收到设备，被告认为双方后来同意延期。开庭时如何回应？', choices: [
     { label: '明确争议焦点，并区分已承认与尚有争议的事实', feedback: '避免笼统否认，围绕具体争点组织事实和证据更可检验。', emphasis: 'good' },

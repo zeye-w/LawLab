@@ -1,13 +1,12 @@
 import { SEED_KNOWLEDGE_NODES, type KnowledgeNode } from './seedConcepts.ts';
-import { EVIDENCE } from '../data/cases.ts';
-import { INITIAL_EVENTS } from '../lib/timeline.ts';
+import { CASE_SEED, EQUIPMENT_CASE_KEY } from './seedEquipmentCase.ts';
 import { EVIDENCE_FACT_LINKS, PROOF_FACTS } from './seedCaseFacts.ts';
 import { CANDIDATE_LEGAL_SOURCES, CONCEPT_SOURCE_CANDIDATES } from './sourceCandidates.ts';
 import { CONTENT_SCHEMA_VERSION, type CaseRecord, type LegalContentRegistry, type LegalConceptRecord, type LegalSource } from './schema.ts';
 
 /** This first seed is fictional teaching data. No official legal source has been verified yet.
  * Preserve existing IDs through explicit legacyId mappings; no new legal claims are added. */
-const CASE_ID = 'case:cn:equipment-sale-demo-001';
+const CASE_ID = EQUIPMENT_CASE_KEY;
 const factId = (id: string) => CASE_ID + ':fact:' + id;
 const evidenceId = (id: string) => CASE_ID + ':evidence:' + id;
 const eventId = (id: string) => CASE_ID + ':event:' + id;
@@ -29,11 +28,11 @@ const concepts: LegalConceptRecord[] = SEED_KNOWLEDGE_NODES.map(node => ({
 
 const caseRecord: CaseRecord = {
   id:CASE_ID,
-  title:'设备买卖合同纠纷（虚构教学案例）',
+  title:CASE_SEED.title,
   jurisdiction:'CN',
   nature:'fictional',
-  synopsis:'围绕设备买卖中的付款、交付及延期协商，练习分辨争议事实与候选证据。本案例纯属虚构。',
-  parties:['买方','卖方'],
+  synopsis:CASE_SEED.synopsis,
+  parties:[...CASE_SEED.parties],
   editorial:{status:'pending',origin:'legacy-demo'},
   facts:PROOF_FACTS.map(f=>({
     id:factId(f.id),title:f.title,question:f.question,assessment:'unassessed'
@@ -41,14 +40,14 @@ const caseRecord: CaseRecord = {
   issues:[{
     id:CASE_ID+':issue:performance',
     title:'合同履行与延期争议',
-    description:'核对合同义务、价款支付、交付行为及延期合意；不得以案例演示关系直接认定事实。',
+    description:'分别核对付款、交付及延期协商的陈述，不把材料摘录视为已采信的证据。',
     factIds:PROOF_FACTS.map(f=>factId(f.id)),
     conceptIds:['contract','facts','evidence','claims','defences'].map(conceptId),
     sourceIds:[]
   }],
-  evidence:EVIDENCE.map(item=>({
-    id:evidenceId(item.id),legacyId:item.id,title:item.title,format:item.type,
-    proposedPurpose:item.purpose,verificationNotes:item.caveat,authenticity:'unverified'
+  evidence:CASE_SEED.evidence.map(e=>({
+    id:evidenceId(e.id),legacyId:e.id,title:e.title,shortTitle:e.shortTitle,format:e.type,
+    proposedPurpose:e.purpose,verificationNotes:e.caveat,authenticity:'unverified'
   })),
   links:Object.entries(EVIDENCE_FACT_LINKS).flatMap(([evidence, facts])=>
     facts.map(fact=>({
@@ -57,16 +56,25 @@ const caseRecord: CaseRecord = {
       factId:factId(fact),
       relation:'candidate-support' as const,
       review:'pending' as const,
-      note:'仅为原演示图谱中的候选关联，需核验原始材料和证明目的。'
+      note:'该材料与待证事实可能相关；原始资料、反证及证明目的仍须核查。'
     }))
   ),
-  events:INITIAL_EVENTS.map(e=>({
+  events:CASE_SEED.events.map(e=>({
     id:eventId(e.id),legacyId:e.id,date:e.date,
     kind:e.type==='事实'?'fact' as const:'procedure' as const,
     title:e.title,description:e.detail,
-    // The legacy timeline only contains display strings, not verified IDs.
-    evidenceIds:[],
+    evidenceIds:e.evidenceLegacyIds.map(evidenceId),
     legacyEvidenceDescription:e.evidence
+  })),
+  documents:CASE_SEED.documents.map(d=>({
+    id:CASE_ID+':document:'+d.id,title:d.title,kind:d.kind,date:d.date,
+    author:d.author,excerpt:d.excerpt,context:d.context,
+    evidenceIds:d.evidenceLegacyIds.map(evidenceId),
+    eventIds:d.eventLegacyIds.map(eventId)
+  })),
+  positions:CASE_SEED.positions.map(p=>({
+    id:CASE_ID+':position:'+p.id,party:p.party,stance:p.stance,
+    disputedFactIds:p.disputedFactLegacyIds.map(factId)
   }))
 };
 
@@ -139,4 +147,11 @@ export function knowledgeBranchNodes(
     convert(parent,children.map(n=>n.legacyId!)),
     ...children.map(child=>convert(child,[parent.legacyId!]))
   ];
+}
+
+/** Dossier lookup is safe for static pages; data is fictional and never a verified legal fact. */
+export function getTeachingCase(registry:LegalContentRegistry=LEGAL_CONTENT_V1):CaseRecord {
+  const record=getCase(EQUIPMENT_CASE_KEY,registry);
+  if(!record)throw new Error('LawLab fictional case fixture missing');
+  return record;
 }
